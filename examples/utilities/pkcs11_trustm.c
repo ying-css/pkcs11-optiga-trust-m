@@ -535,7 +535,7 @@ typedef struct pkcs11_session {
     mbedtls_sha256_context sha256_ctx;
 #endif
     CK_ULONG rsa_key_size;
-    //  CK_ULONG ec_key_size;
+    CK_ULONG ec_key_size;
     uint16_t key_alg_id;
     uint16_t encryption_key_oid;
     uint16_t decryption_key_oid;
@@ -3480,9 +3480,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
             /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
             case CKA_EC_POINT:
                 if (xClass != CKO_PUBLIC_KEY) {
-                    PKCS11_PRINT(
-                        "ERROR: C_GetAttributeValue: EC_POINT supported only for public key objects\r\n"
-                    );
+                    //~ PKCS11_PRINT(
+                        //~ "ERROR: C_GetAttributeValue: EC_POINT supported only for public key objects\r\n"
+                    //~ );
                     xResult = CKR_ATTRIBUTE_TYPE_INVALID;
                     break;
                 }
@@ -3717,8 +3717,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                 switch ((int)pxSession->key_alg_id) {
                     case 0:
                         //!!!JC ToDo: If ECC key length unknown, need to read it from Optiga metadata.
-                        PKCS11_PRINT("ERROR: C_GetAttributeValue: EC key size unknown\r\n");
-                        xResult = CKR_ATTRIBUTE_TYPE_INVALID;
+                        //~ PKCS11_PRINT("ERROR: C_GetAttributeValue: EC key size unknown\r\n");
+                        //~ xResult = CKR_ATTRIBUTE_TYPE_INVALID;
+                        temp_ec_value = ec_param_p256;
+                        pxSession->ec_key_size = 0x44;
+                        ulLength = sizeof(ec_param_p256);
                         break;
                     case OPTIGA_ECC_CURVE_NIST_P_256:
                         temp_ec_value = ec_param_p256;
