@@ -920,21 +920,23 @@ CK_RV optiga_trustm_sign_data(
         }
         asn1_to_ecdsa_rs(ecSignature, ecSignatureLength, pucSignature, xSignatureLength);
     }
-#ifdef SUPPORT_RSA
+#ifdef PKCS11_SUPPORT_RSA
     else if (CKR_OK == set_valid_rsa_signature_scheme(sign_mechanism, &rsa_signature_scheme)) {
         PKCS11_DEBUG(
             "TRACE: C_Sign...(RSA): OID: 0x%X. Signature scheme: 0x%X\r\n",
             oid,
             rsa_signature_scheme
         );
+        uint8_t rsaSignature[pkcs11RSA_2048_SIGNATURE_LENGTH + 11];
+        uint16_t rsaSignatureLength = sizeof(rsaSignature);
         optiga_lib_return = optiga_crypt_rsa_sign(
             pkcs11_context.object_list.optiga_crypt_instance,
             rsa_signature_scheme,
             pucData,
             ulDataLen,
             oid,
-            pucSignature,
-            (uint16_t *)pulSignatureLen,
+            rsaSignature,
+            &rsaSignatureLength,
             0x0000
         );
         trustm_CheckStatus_WaitForCompletion(
@@ -942,6 +944,8 @@ CK_RV optiga_trustm_sign_data(
             BUSY_WAIT_TIME_OUT,
             "optiga_crypt_rsa_sign"
         );
+        memcpy(pucSignature, rsaSignature, rsaSignatureLength);
+        xSignatureLength = rsaSignatureLength;
         if (OPTIGA_LIB_SUCCESS != optiga_lib_return) {
             PKCS11_PRINT(
                 "ERROR: C_Sign...(RSA): 'optiga_crypt_sign' failed. Returned: 0x%04X\r\n",
@@ -2049,12 +2053,10 @@ CK_ULONG check_valid_rsa_signature_scheme(CK_MECHANISM_TYPE mechanism_type, CK_U
         case CKM_SHA256_RSA_PKCS:
         case CKM_SHA384_RSA_PKCS:
         case CKM_SHA512_RSA_PKCS:
-            PKCS11_DEBUG("TRACE: rsa_key_size: %d\r\n", rsa_key_size); 
             if (rsa_key_size == 0)
                 return 1;  // In case key_size is not required
-            //~ return (rsa_key_size == pkcs11RSA_2048_MODULUS_BITS) ? pkcs11RSA_2048_SIGNATURE_LENGTH
-                                                             //~ : pkcs11RSA_1024_SIGNATURE_LENGTH;
-            return pkcs11RSA_2048_SIGNATURE_LENGTH;
+            return (rsa_key_size == pkcs11RSA_2048_MODULUS_BITS) ? pkcs11RSA_2048_SIGNATURE_LENGTH
+                                                             : pkcs11RSA_1024_SIGNATURE_LENGTH;
     }
     return 0;
 }
@@ -2070,81 +2072,54 @@ CK_ULONG check_signature_scheme_get_signature_size(
     uint8_t metadata[64];
     uint8_t *pAlg;
     optiga_lib_status_t optiga_lib_return;
-
-    if (pub_key_handle != 0 && priv_key_handle == 0)
-        priv_key_handle =
-            pub_key_handle
-            - 1;  // Assumption that private key in slots table is followed by public key
-    if (mechanism_type == CKM_ECDSA) {
-        if (pxSession->key_alg_id == 0) {
-            if (priv_key_handle != 0 && priv_key_handle < MAX_NUM_OBJECTS) {
-                if (optiga_objects_list[priv_key_handle].obj_size_key_alg
-                    != 0)  // Check if metadata has been read before (cached)
-                {
-                    pxSession->key_alg_id =
-                        optiga_objects_list[priv_key_handle]
-                            .obj_size_key_alg;  // Use key_size to store alg id byte
-                } else {
-                    optiga_lib_return = optiga_trustm_read_metadata(
-                        optiga_objects_list[priv_key_handle].physical_oid,
-                        metadata,
-                        sizeof(metadata),
-                        OPTIGA_COMMS_FULL_PROTECTION
-                    );
-                    if (OPTIGA_LIB_SUCCESS != optiga_lib_return) {
-                        PKCS11_PRINT(
-                            "ERROR: check_signature_scheme_get_signature_size (OID: 0x%04X) failed.\r\n",
-                            optiga_objects_list[priv_key_handle].physical_oid
-                        );
-                        return 0;
-                    }
-                    /*
-                    Private key metadata:                                         Alg 
-                    0xE0F1: (NIST256) 20 11 C0 01 01 D0 03 E1 FC 07 D3 01 00 E0 01 03 E1 01 10
-                    0xE0F2: (NIST384) 20 11 C0 01 01 D0 03 E1 FC 07 D3 01 00 E0 01 04 E1 01 10
-                    0xE0F3: (NIST521) 20 11 C0 01 01 D0 03 E1 FC 07 D3 01 00 E0 01 05 E1 01 10 
-                    */
-                    pAlg = Find_TLV_Tag(
-                        metadata,
-                        0xE0,
-                        NULL
-                    );  // Get Tag E0 value (one byte) = key algorithm
-                    pxSession->key_alg_id = pAlg[2];
-                    optiga_objects_list[priv_key_handle].obj_size_key_alg =
-                        pxSession->key_alg_id;  // Use key_size to store alg id byte
-                }
+    if (pxSession->key_alg_id == 0) {
+        if (priv_key_handle != 0 && priv_key_handle < MAX_NUM_OBJECTS) {
+            if (optiga_objects_list[priv_key_handle].obj_size_key_alg != 0) {  // Check if metadata has been read before (cached)
+                pxSession->key_alg_id = optiga_objects_list[priv_key_handle].obj_size_key_alg;  // Use key_size to store alg id byte
             } else {
-                PKCS11_PRINT("ERROR: Unknown EC key handle: 0x%X\r\n", priv_key_handle);
-                return 0;
+                optiga_lib_return = optiga_trustm_read_metadata(
+                    optiga_objects_list[priv_key_handle].physical_oid,
+                    metadata,
+                    sizeof(metadata),
+                    OPTIGA_COMMS_FULL_PROTECTION
+                );
+                if (OPTIGA_LIB_SUCCESS != optiga_lib_return) {
+                    PKCS11_PRINT(
+                        "ERROR: check_signature_scheme_get_signature_size (OID: 0x%04X) failed.\r\n",
+                        optiga_objects_list[priv_key_handle].physical_oid
+                    );
+                    return 0;
+                }
+                pAlg = Find_TLV_Tag(metadata, 0xE0, NULL);  // Get Tag E0 value (one byte) = key algorithm
+                pxSession->key_alg_id = pAlg[2];
+                optiga_objects_list[priv_key_handle].obj_size_key_alg = pxSession->key_alg_id;  // Cache the alg id
             }
         }
-        if ((lSignatureSize = get_signature_size((int)pxSession->key_alg_id)) == 0) {
-            PKCS11_PRINT("ERROR: Unsupported EC key type 0x%X \r\n", pxSession->key_alg_id);
-            return 0;
-        }
     }
+    if (mechanism_type == CKM_ECDSA) {
+        //~ if ((lSignatureSize = get_signature_size((int)pxSession->key_alg_id)) == 0) {
+            //~ PKCS11_PRINT("ERROR: Unsupported EC key type 0x%X \r\n", pxSession->key_alg_id);
+            //~ return 0;
+            lSignatureSize = get_signature_size((int)pxSession->key_alg_id);
+            PKCS11_DEBUG("TRACE: lSignatureSize = %d bytes\r\n",lSignatureSize);    
+        } 
 #ifdef PKCS11_SUPPORT_RSA
-    else {
-        CK_ULONG rsa_key_size;
-        lSignatureSize = check_valid_rsa_signature_scheme(mechanism_type, rsa_key_size);
-        switch (mechanism_type) {
-            case CKM_RSA_PKCS:
-            case CKM_SHA256_RSA_PKCS:
-            case CKM_SHA384_RSA_PKCS:
-            case CKM_SHA512_RSA_PKCS:
-                if (rsa_key_size == 0)
-                    lSignatureSize = 1;  // In case key_size is not required
-                if (rsa_key_size == pkcs11RSA_2048_MODULUS_BITS)
-                    lSignatureSize = pkcs11RSA_2048_SIGNATURE_LENGTH;
-                else
-                    lSignatureSize = pkcs11RSA_1024_SIGNATURE_LENGTH;
-        }
-        if (lSignatureSize == 0) {
+    else if(mechanism_type == CKM_RSA_PKCS){
+        if (pxSession->key_alg_id == OPTIGA_RSA_KEY_2048_BIT_EXPONENTIAL) {
+            lSignatureSize = pkcs11RSA_2048_SIGNATURE_LENGTH;
+        } else if (pxSession->key_alg_id == OPTIGA_RSA_KEY_1024_BIT_EXPONENTIAL) {
+            lSignatureSize = pkcs11RSA_1024_SIGNATURE_LENGTH;
+        } else {
             PKCS11_PRINT("ERROR: Unsupported signature mechanism 0x%X \r\n", mechanism_type);
             return 0;
         }
+        PKCS11_DEBUG("TRACE: lSignatureSize = %d bytes\r\n",lSignatureSize);
     }
 #endif
+    else {
+            PKCS11_PRINT("ERROR: Unknown EC/RSA key handle: 0x%X\r\n", priv_key_handle);
+            return 0;
+        }
     return lSignatureSize;
 }
 /**************************************************************************/
