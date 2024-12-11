@@ -2072,6 +2072,11 @@ CK_ULONG check_signature_scheme_get_signature_size(
     uint8_t metadata[64];
     uint8_t *pAlg;
     optiga_lib_status_t optiga_lib_return;
+    PKCS11_DEBUG("TRACE: Mechanism Type = 0x%X\r\n", mechanism_type);
+    if (pub_key_handle != 0 && priv_key_handle == 0)
+        priv_key_handle =
+            pub_key_handle
+            - 1;  // Assumption that private key in slots table is followed by public key
     if (pxSession->key_alg_id == 0) {
         if (priv_key_handle != 0 && priv_key_handle < MAX_NUM_OBJECTS) {
             if (optiga_objects_list[priv_key_handle].obj_size_key_alg != 0) {  // Check if metadata has been read before (cached)
@@ -4527,15 +4532,15 @@ CK_DEFINE_FUNCTION(CK_RV, C_VerifyInit)
         pxSession->key_object_handle = xPalHandle;
 
         /* Check that the mechanism and key type are compatible, supported. */
-        if (check_signature_scheme_get_signature_size(
+        if (pxSession->signature_size = check_signature_scheme_get_signature_size(
                 pxSession,
                 pxMechanism->mechanism,
                 0,
                 xPalHandle
             )
             == 0) {
-            xResult = CKR_MECHANISM_INVALID;
-            break;
+            PKCS11_PRINT("ERROR: C_VerifyInit: Invalid mechanism: 0x%X\r\n", pxMechanism->mechanism);    
+            return CKR_MECHANISM_INVALID;
         } else {
             pxSession->verify_mechanism = pxMechanism->mechanism;
             PKCS11_DEBUG(
@@ -4681,11 +4686,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Verify)
         else if (CKR_OK == set_valid_rsa_signature_scheme(pxSession->verify_mechanism, &rsa_signature_scheme)) {
             xPublicKeyDetails.public_key = temp;
             xPublicKeyDetails.length = tempLen;
-            xPublicKeyDetails.key_type =
-                (pxSession->rsa_key_size == pkcs11RSA_2048_MODULUS_BITS
-                     ? OPTIGA_RSA_KEY_2048_BIT_EXPONENTIAL
-                     : OPTIGA_RSA_KEY_1024_BIT_EXPONENTIAL);
-
+            xPublicKeyDetails.key_type = pxSession->key_alg_id;       
             optiga_lib_return = optiga_crypt_rsa_verify(
                 pkcs11_context.object_list.optiga_crypt_instance,
                 rsa_signature_scheme,
