@@ -57,13 +57,9 @@ static uint8_t sem_initialized = 0;
 /*************************************************
  * @brief Cryptoki module attribute definitions.
  */
-#ifdef PKCS11_SUPPORT_RSA
 #define PKCS11_MAX_SLOTS 6
 static const uint8_t rsa_public_exponent[] = {0x01, 0x00, 0x01}; // 65537 in hexadecimal.
 #define RSA_PUBLIC_EXPONENT_LENGTH sizeof(rsa_public_exponent)
-#else
-#define PKCS11_MAX_SLOTS 4
-#endif
 
 #define PKCS11_MAX_MECHANISMS 30
 #define MAX_SESSIONS 4
@@ -251,57 +247,6 @@ enum eObjectHandles {
 #define LABEL_PRVK "PrvKey"
 #define LABEL_PUBK "PubKey"
 
-#ifndef PKCS11_SUPPORT_RSA  // Mapping for 4 ECC slots and 2 RSA slots
-static pkcs11_object_t optiga_objects_list[MAX_NUM_OBJECTS + 1] = {
-    {
-        0,
-        "",
-        0,
-        0,
-        0,
-        0,
-    },
-    {0, LABEL_CERT, 0xE0E0, CKO_CERTIFICATE, CKK_EC, OPTIGA_CERTIFICATE_SIZE},  // 1  - Slot 0 (ECC)
-    {0, LABEL_PRVK, 0xE0F0, CKO_PRIVATE_KEY, CKK_EC, OPTIGA_PRIVATE_KEY_SIZE},  // 2
-    {0, LABEL_PUBK, 0xE0E8, CKO_PUBLIC_KEY, CKK_EC, OPTIGA_PUBLIC_KEY_SIZE},  // 3
-
-    {1, LABEL_CERT, 0xE0E1, CKO_CERTIFICATE, CKK_EC, OPTIGA_CERTIFICATE_SIZE},  // 4  - Slot 1 (ECC)
-    {1, LABEL_PRVK, 0xE0F1, CKO_PRIVATE_KEY, CKK_EC, OPTIGA_PRIVATE_KEY_SIZE},  // 5
-    {1, LABEL_PUBK, 0xE0E9, CKO_PUBLIC_KEY, CKK_EC, OPTIGA_PUBLIC_KEY_SIZE},  // 6
-
-    {2, LABEL_CERT, 0xE0E2, CKO_CERTIFICATE, CKK_EC, OPTIGA_CERTIFICATE_SIZE},  // 7  - Slot 2 (ECC)
-    {2, LABEL_PRVK, 0xE0F2, CKO_PRIVATE_KEY, CKK_EC, OPTIGA_PRIVATE_KEY_SIZE},  // 8
-    {2, LABEL_PUBK, 0xF1E0, CKO_PUBLIC_KEY, CKK_EC, OPTIGA_PUBLIC_KEY_SIZE},  // 9
-
-    {3, LABEL_CERT, 0xE0E3, CKO_CERTIFICATE, CKK_EC, OPTIGA_CERTIFICATE_SIZE},  // 10 - Slot 3 (ECC)
-    {3, LABEL_PRVK, 0xE0F3, CKO_PRIVATE_KEY, CKK_EC, OPTIGA_PRIVATE_KEY_SIZE},  // 11
-    {3, LABEL_PUBK, 0xF1E1, CKO_PUBLIC_KEY, CKK_EC, OPTIGA_PUBLIC_KEY_SIZE},  // 12
-    // Objects below should not be used - they overlap with slots 0-3
-    {4,
-     LABEL_CERT,
-     0xE0E2,
-     CKO_CERTIFICATE,
-     CKK_RSA,
-     OPTIGA_CERTIFICATE_SIZE},  // 13 - Slot 4 (RSA)
-    {4, LABEL_PRVK, 0xE0FC, CKO_PRIVATE_KEY, CKK_RSA, OPTIGA_PRIVATE_KEY_SIZE},  // 14
-    {4, LABEL_PUBK, 0xF1E0, CKO_PUBLIC_KEY, CKK_RSA, OPTIGA_PUBLIC_KEY_SIZE},  // 15
-
-    {5,
-     LABEL_CERT,
-     0xE0E3,
-     CKO_CERTIFICATE,
-     CKK_RSA,
-     OPTIGA_CERTIFICATE_SIZE},  // 16 - Slot 5 (RSA)
-    {5, LABEL_PRVK, 0xE0FD, CKO_PRIVATE_KEY, CKK_RSA, OPTIGA_PRIVATE_KEY_SIZE},  // 17
-    {5, LABEL_PUBK, 0xF1E1, CKO_PUBLIC_KEY, CKK_RSA, OPTIGA_PUBLIC_KEY_SIZE},  // 18
-
-    {6, "0xE0E8", 0xE0E8, CKO_CERTIFICATE, CKK_EC, OPTIGA_CERTIFICATE_SIZE},  // 19 - Trust anchors
-    {6, "0xE0E9", 0xE0E9, CKO_CERTIFICATE, CKK_EC, OPTIGA_CERTIFICATE_SIZE},  // 20
-    {6, "0xE0EF", 0xE0EF, CKO_CERTIFICATE, CKK_EC, OPTIGA_CERTIFICATE_SIZE},  // 21
-};
-#endif
-
-#ifdef PKCS11_SUPPORT_RSA  // Mapping for 4 ECC slots and 2 RSA slots
 static pkcs11_object_t optiga_objects_list[MAX_NUM_OBJECTS + 1] = {
     {
         0,
@@ -349,7 +294,6 @@ static pkcs11_object_t optiga_objects_list[MAX_NUM_OBJECTS + 1] = {
     {6, "0xE0E9", 0xE0E9, CKO_CERTIFICATE, CKK_EC, OPTIGA_CERTIFICATE_SIZE},  // 20
     {6, "0xE0EF", 0xE0EF, CKO_CERTIFICATE, CKK_EC, OPTIGA_CERTIFICATE_SIZE},  // 21
 };
-#endif
 
 typedef struct _MECHANISM_INFO {
     CK_MECHANISM_TYPE xType;
@@ -463,7 +407,6 @@ static SLOTS_LIST supported_slots_mechanisms_list[PKCS11_MAX_SLOTS + 1] = {
          256,
          CKF_DIGEST},
     },
-#ifdef PKCS11_SUPPORT_RSA
     {
         4,  // ======================== Slot 4 - RSA ========================
         "Slot4",
@@ -506,7 +449,6 @@ static SLOTS_LIST supported_slots_mechanisms_list[PKCS11_MAX_SLOTS + 1] = {
          2048,
          CKF_SIGN | CKF_VERIFY | CKA_ENCRYPT | CKA_DECRYPT},
     },
-#endif
 };
 
 /********************************************************************************************
@@ -841,7 +783,6 @@ CK_RV optiga_trustm_read_metadata(
 }
 
 /**************************************************************************/
-#ifdef PKCS11_SUPPORT_RSA
 CK_RV set_valid_rsa_signature_scheme(
     CK_MECHANISM_TYPE mechanism_type,
     optiga_rsa_signature_scheme_t *rsa_signature_scheme
@@ -865,7 +806,6 @@ CK_RV set_valid_rsa_signature_scheme(
     }
     return return_status;
 }
-#endif
 /**************************************************************************
     Sign data in OPTIGA using private key in provided OID
  **************************************************************************/
@@ -920,7 +860,6 @@ CK_RV optiga_trustm_sign_data(
         }
         asn1_to_ecdsa_rs(ecSignature, ecSignatureLength, pucSignature, xSignatureLength);
     }
-#ifdef PKCS11_SUPPORT_RSA
     else if (CKR_OK == set_valid_rsa_signature_scheme(sign_mechanism, &rsa_signature_scheme)) {
         PKCS11_DEBUG(
             "TRACE: C_Sign...(RSA): OID: 0x%X. Signature scheme: 0x%X\r\n",
@@ -954,7 +893,6 @@ CK_RV optiga_trustm_sign_data(
             return optiga_lib_return;
         }
     }
-#endif
     else {
         PKCS11_PRINT("ERROR: C_Sign...: Wrong mechanism: 0x%X\r\n", sign_mechanism);
         return OPTIGA_UTIL_ERROR;
@@ -2108,7 +2046,6 @@ CK_ULONG check_signature_scheme_get_signature_size(
             lSignatureSize = get_signature_size((int)pxSession->key_alg_id);
             PKCS11_DEBUG("TRACE: lSignatureSize = %d bytes\r\n",lSignatureSize);    
         } 
-#ifdef PKCS11_SUPPORT_RSA
     else if(mechanism_type == CKM_RSA_PKCS){
         if (pxSession->key_alg_id == OPTIGA_RSA_KEY_2048_BIT_EXPONENTIAL) {
             lSignatureSize = pkcs11RSA_2048_SIGNATURE_LENGTH;
@@ -2120,7 +2057,6 @@ CK_ULONG check_signature_scheme_get_signature_size(
         }
         PKCS11_DEBUG("TRACE: lSignatureSize = %d bytes\r\n",lSignatureSize);
     }
-#endif
     else {
             PKCS11_PRINT("ERROR: Unknown EC/RSA key handle: 0x%X\r\n", priv_key_handle);
             return 0;
@@ -2452,11 +2388,11 @@ CK_RV verify_private_key_template(
 
     //for (ulIndex = 0; ulIndex < expected_attributes_size; ulIndex++) {
         //if ((received_attribute & pExpected_attribute[ulIndex]) == pExpected_attribute[ulIndex]) {
-            return CKR_OK;
+    return CKR_OK;
         //}
     //}
-    PKCS11_PRINT(("ERROR: PrivateKeyTemplate: Template inconsistent\r\n"));
-    return CKR_TEMPLATE_INCONSISTENT;
+    //PKCS11_PRINT(("ERROR: PrivateKeyTemplate: Template inconsistent\r\n"));
+    //return CKR_TEMPLATE_INCONSISTENT;
 }
 /**************************************************************************
 
@@ -2616,6 +2552,7 @@ CK_RV verify_public_key_template(
             } break;
             /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
             case (CKA_MODULUS_BITS): {
+                xKeyType = CKK_RSA;
                 memcpy(&modulus_bits, xAttribute.pValue, sizeof(CK_ULONG));
                 PKCS11_DEBUG(
                     "TRACE: PublicKeyTemplate: CKA_MODULUS_BITS: %d\r\n",
@@ -2690,11 +2627,11 @@ CK_RV verify_public_key_template(
 
     //for (ulIndex = 0; ulIndex < expected_attributes_size; ulIndex++) {
         //if ((received_attribute & pExpected_attribute[ulIndex]) == pExpected_attribute[ulIndex]) {
-            return CKR_OK;
+    return CKR_OK;
         //}
     //}
-    PKCS11_PRINT(("ERROR: PublicKeyTemplate: Template inconsistent\r\n"));
-    return CKR_TEMPLATE_INCONSISTENT;
+    //PKCS11_PRINT(("ERROR: PublicKeyTemplate: Template inconsistent\r\n"));
+    //return CKR_TEMPLATE_INCONSISTENT;
 }
 /**************************************************************************
     Get object CLASS from template     
@@ -2802,7 +2739,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
 
             case CKO_PUBLIC_KEY:
                 xKeyType = get_key_type(pxTemplate, ulCount);
-                if (xKeyType == CKK_EC) {
+                if (xKeyType == CKK_EC || xKeyType == CKK_RSA) {
                     get_label(&pxLabel, pxTemplate, ulCount);
                     xResult = verify_public_key_template(
                         xSession,
@@ -3541,14 +3478,14 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                         0x03,
                         &iPubKeyLen
                     );  // Get pointer to Tag 0x03 value
-                    if (pPubKey != NULL && iPubKeyLen != 0) {
-                        ulLength = iPubKeyLen + 2;
-                        memmove(
-                            pxObjectValue,
-                            pPubKey,
-                            ulLength
-                        );  // Remove header from the DER public key encoding
-                    }
+                    //~ if (pPubKey != NULL && iPubKeyLen != 0) {
+                        //~ ulLength = iPubKeyLen + 2;
+                        //~ memmove(
+                            //~ pxObjectValue,
+                            //~ pPubKey,
+                            //~ ulLength
+                        //~ );  // Remove header from the DER public key encoding
+                    //~ }
                 } else if (pxObjectValue[0] == 0)
                     ulLength =
                         67;  // Pub key not written (ex., Slot 0 IFX provisioned - default - EC 256 bit - all zero bytes)
@@ -3745,7 +3682,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
             /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
             case CKA_EC_PARAMS:
                 switch ((int)pxSession->key_alg_id) {
-                    PKCS11_PRINT("Key Algorithm ID: %d\r\n", (int)pxSession->key_alg_id);
                     case 0:
                         //!!!JC ToDo: If ECC key length unknown, need to read it from Optiga metadata.
                         temp_ec_value = ec_param_p256;
@@ -3797,15 +3733,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                 );
                 break;
                 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-#ifdef PKCS11_SUPPORT_RSA
             case CKA_MODULUS:
             case CKA_MODULUS_BITS:
                 switch ((int)pxSession->key_alg_id) {
+                    case 0:
+                        pxSession->rsa_key_size = pkcs11RSA_2048_MODULUS_BITS;
+                        break;
                     case OPTIGA_RSA_KEY_2048_BIT_EXPONENTIAL:
-                        ulLength = pkcs11RSA_2048_MODULUS_BITS;
+                        pxSession->rsa_key_size = pkcs11RSA_2048_MODULUS_BITS;
                         break;
                     case OPTIGA_RSA_KEY_1024_BIT_EXPONENTIAL:
-                        ulLength = pkcs11RSA_1024_MODULUS_BITS;
+                        pxSession->rsa_key_size = pkcs11RSA_1024_MODULUS_BITS;
                         break;
                     default:
                         PKCS11_PRINT("ERROR: C_GetAttributeValue: Unknown RSA key size\r\n");
@@ -3821,7 +3759,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
             case CKA_EXPONENT_2:
             case CKA_COEFFICIENT:
                 return CKR_ATTRIBUTE_SENSITIVE;
-#endif
             /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
             default:
                 if ((unsigned int)(pxTemplate[iAttrib].type) >= 0x800) {
@@ -4682,7 +4619,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Verify)
                 "optiga_crypt_ecdsa_verify"
             );
         }
-#ifdef PKCS11_SUPPORT_RSA
         else if (CKR_OK == set_valid_rsa_signature_scheme(pxSession->verify_mechanism, &rsa_signature_scheme)) {
             xPublicKeyDetails.public_key = temp;
             xPublicKeyDetails.length = tempLen;
@@ -4705,7 +4641,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Verify)
                 "optiga_crypt_rsa_verify"
             );
         }
-#endif
         else {
             xResult = CKR_ARGUMENTS_BAD;
             break;
