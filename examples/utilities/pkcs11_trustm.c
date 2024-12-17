@@ -3214,6 +3214,35 @@ CK_DEFINE_FUNCTION(CK_RV, C_OpenSession)
     }
     return xResult;
 }
+CK_DEFINE_FUNCTION(CK_RV, C_GetSessionInfo)
+(CK_SESSION_HANDLE pxSession, CK_SESSION_INFO_PTR pInfo) {
+    PKCS11_MODULE_INITIALIZED
+    xResult = CKR_OK;
+    p_pkcs11_session_t pxSessionObj = NULL;
+
+    if (pkcs11_context.is_initialized != CK_TRUE) {
+        xResult = CKR_CRYPTOKI_NOT_INITIALIZED;
+    }
+
+    if (pInfo == NULL) {
+        xResult = CKR_ARGUMENTS_BAD;
+    } else {
+        pxSessionObj = get_session_pointer(pxSession);
+
+        if (pxSessionObj == NULL) {
+            xResult = CKR_SESSION_HANDLE_INVALID;
+        }
+    }
+
+    if (CKR_OK == xResult) {
+        pInfo->slotID = pxSessionObj->slot_id;
+        pInfo->state = pxSessionObj->state;
+        pInfo->flags = pxSessionObj->state == CKS_RW_PUBLIC_SESSION ? CKF_RW_SESSION : 0;
+        pInfo->ulDeviceError = 0; /* No device error tracking in this implementation. */
+    }
+
+    return xResult;
+}
 /**************************************************************************
  * @brief Terminate a session and release resources.
  **************************************************************************/
