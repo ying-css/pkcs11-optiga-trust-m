@@ -2263,8 +2263,8 @@ CK_RV verify_private_key_template(
     uint32_t ec_expected_attribute[] = {(LABEL | PRIVATE | SIGN), (PRIVATE | SIGN)};
     uint32_t rsa_expected_attribute[] = {
         (LABEL | PRIVATE | SIGN | DECRYPT),
-        (LABEL | PRIVATE | DECRYPT),
-        (LABEL | PRIVATE | SIGN)};
+        (PRIVATE | DECRYPT),
+        (PRIVATE | SIGN)};
     uint32_t *pExpected_attribute;
     int expected_attributes_size;
 
@@ -2386,13 +2386,13 @@ CK_RV verify_private_key_template(
         return CKR_ATTRIBUTE_VALUE_INVALID;
     }
 
-    //for (ulIndex = 0; ulIndex < expected_attributes_size; ulIndex++) {
-        //if ((received_attribute & pExpected_attribute[ulIndex]) == pExpected_attribute[ulIndex]) {
-    return CKR_OK;
-        //}
-    //}
-    //PKCS11_PRINT(("ERROR: PrivateKeyTemplate: Template inconsistent\r\n"));
-    //return CKR_TEMPLATE_INCONSISTENT;
+    for (ulIndex = 0; ulIndex < expected_attributes_size; ulIndex++) {
+        if ((received_attribute & pExpected_attribute[ulIndex]) == pExpected_attribute[ulIndex]) {
+            return CKR_OK;
+        }
+    }
+    PKCS11_PRINT(("ERROR: PrivateKeyTemplate: Template inconsistent\r\n"));
+    return CKR_TEMPLATE_INCONSISTENT;
 }
 /**************************************************************************
 
@@ -2423,8 +2423,8 @@ CK_RV verify_public_key_template(
     uint32_t ec_expected_attribute[] = {(LABEL | EC_PARAMS /* |VERIFY */), (EC_PARAMS)};
     uint32_t rsa_expected_attribute[] = {
         (LABEL | ENCRYPT | VERIFY | MODULUS | EXPONENT),
-        (LABEL | ENCRYPT | MODULUS | EXPONENT),
-        (LABEL | VERIFY | MODULUS | EXPONENT),
+        (ENCRYPT | MODULUS | EXPONENT),
+        (VERIFY | MODULUS | EXPONENT),
     };
     uint32_t *pExpected_attribute;
     int expected_attributes_size;
@@ -2625,13 +2625,13 @@ CK_RV verify_public_key_template(
         return CKR_ATTRIBUTE_VALUE_INVALID;
     }
 
-    //for (ulIndex = 0; ulIndex < expected_attributes_size; ulIndex++) {
-        //if ((received_attribute & pExpected_attribute[ulIndex]) == pExpected_attribute[ulIndex]) {
-    return CKR_OK;
-        //}
-    //}
-    //PKCS11_PRINT(("ERROR: PublicKeyTemplate: Template inconsistent\r\n"));
-    //return CKR_TEMPLATE_INCONSISTENT;
+    for (ulIndex = 0; ulIndex < expected_attributes_size; ulIndex++) {
+        if ((received_attribute & pExpected_attribute[ulIndex]) == pExpected_attribute[ulIndex]) {
+            return CKR_OK;
+        }
+    }
+    PKCS11_PRINT(("ERROR: PublicKeyTemplate: Template inconsistent\r\n"));
+    return CKR_TEMPLATE_INCONSISTENT;
 }
 /**************************************************************************
     Get object CLASS from template     
