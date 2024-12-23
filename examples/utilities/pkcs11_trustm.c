@@ -1185,7 +1185,7 @@ static CK_FUNCTION_LIST prvP11FunctionList = {
     C_OpenSession,
     C_CloseSession,
     NULL, /*C_CloseAllSessions, - implemented, but not supported by OpenSC pkcs11-spy based on PKCS#11 ver.2.11 */
-    NULL, /*C_GetSessionInfo*/
+    C_GetSessionInfo, /*C_GetSessionInfo*/
     NULL, /*C_GetOperationState*/
     NULL, /*C_SetOperationState*/
     C_Login,
@@ -2010,7 +2010,6 @@ CK_ULONG check_signature_scheme_get_signature_size(
     uint8_t metadata[64];
     uint8_t *pAlg;
     optiga_lib_status_t optiga_lib_return;
-    PKCS11_DEBUG("TRACE: Mechanism Type = 0x%X\r\n", mechanism_type);
     if (pub_key_handle != 0 && priv_key_handle == 0)
         priv_key_handle =
             pub_key_handle
@@ -3327,8 +3326,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
     uint8_t *pxObjectValue = NULL;
     uint16_t ulLength = 0;
     uint8_t *temp_ec_value = NULL;
-    uint8_t *temp_rsa_value = NULL;
-    uint8_t *temp_rsa_exponent = NULL;
     CK_ULONG modulus_bits;
     CK_BYTE exp_bits[] = {0x01, 0x00, 0x01};
     CK_OBJECT_HANDLE xPalHandle = CK_INVALID_HANDLE;
@@ -3476,9 +3473,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
             /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
             case CKA_EC_POINT:
                 if (xClass != CKO_PUBLIC_KEY) {
-                    //~ PKCS11_PRINT(
-                        //~ "ERROR: C_GetAttributeValue: EC_POINT supported only for public key objects\r\n"
-                    //~ );
                     xResult = CKR_ATTRIBUTE_TYPE_INVALID;
                     break;
                 }
@@ -3763,6 +3757,50 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                 break;
                 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
             case CKA_MODULUS:
+            if (xClass != CKO_PUBLIC_KEY) {
+                    xResult = CKR_ATTRIBUTE_TYPE_INVALID;
+                    break;
+                }
+                PKCS11_DEBUG(
+                    "TRACE: C_GetAttributeValue: CKA_MODULUS: Getting object: %d from Optiga\r\n",
+                    (int)xObject
+                );
+                xResult = get_object_value(
+                    xPalHandle,
+                    &pxObjectValue,
+                    &ulLength
+                ); 
+                printf("Object Value: ");
+                for (int i = 0; i < ulLength; i++) {
+                        printf("%02X ", pxObjectValue[i]);
+                }
+                printf("\n");
+                if (CKR_OK != xResult) {
+                    PKCS11_PRINT(
+                        "ERROR: C_GetAttributeValue: Get public key %d MODULUS from Optiga failed with error 0x%X\r\n",
+                        (int)xObject,
+                        (int)xResult
+                    );
+                    goto get_object_exit;
+                }
+                int iModulusLen;
+                uint8_t *pModulus = Find_TLV_Tag(
+                        pxObjectValue,
+                        0x02,  // Tag for the modulus (DER INTEGER)
+                        &iModulusLen
+                    );
+                if (pModulus == NULL) {
+                        printf("Modulus tag (0x02) not found.\n");
+                }
+                xResult = check_and_copy_attribute(
+                    xObject,
+                    "CKA_MODULUS",
+                    pxTemplate,
+                    iAttrib,
+                    (void *)pModulus,
+                    iModulusLen
+                );
+                break;
             case CKA_MODULUS_BITS:
                 switch ((int)pxSession->key_alg_id) {
                     case 0:
@@ -3780,6 +3818,20 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                 }
                 break;
             case CKA_PUBLIC_EXPONENT:
+                if (pxSession->key_alg_id == OPTIGA_RSA_KEY_2048_BIT_EXPONENTIAL || OPTIGA_RSA_KEY_1024_BIT_EXPONENTIAL) {
+                xResult = check_and_copy_attribute(
+                    xObject,
+                    "CKA_PUBLIC_EXPONENT",
+                    pxTemplate,
+                    iAttrib,
+                    (void *)exp_bits,
+                    sizeof(exp_bits)
+                );
+            } else {
+                PKCS11_PRINT("ERROR: C_GetAttributeValue: Invalid key type for CKA_PUBLIC_EXPONENT\r\n");
+                xResult = CKR_ATTRIBUTE_TYPE_INVALID;
+                }
+                break;
             /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
             case CKA_PRIVATE_EXPONENT:
             case CKA_PRIME_1:
