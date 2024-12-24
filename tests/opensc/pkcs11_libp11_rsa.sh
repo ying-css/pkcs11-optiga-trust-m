@@ -30,8 +30,19 @@ echo "=================================================="
 #~ ./pd --slot 4 --label PubKey --read-object --type data --output-file Slot4PubKey.der
 #~ xxd Slot4PubKey.der
 
+echo "======>Hash data"	
+echo "01234567890123456789012345678901234567890123456789" > test.txt	
+./pd --hash  --hash-algorithm SHA256 --input-file test.txt --output-file test.sha
+xxd test.sha 
+
 echo "======>Read out the Public Key for Token4"	
 OPENSSL_CONF=openssl_pkcs11.cnf openssl pkey -engine pkcs11 -in "pkcs11:token=Token4" -pubin -pubout -text -inform engine
+
+echo "======>RSA sign"	
+./pd --slot 4 --sign --mechanism RSA-PKCS --input-file test.sha --output-file Slot4prvkey.sig
+
+echo "======>Verify signature"	
+OPENSSL_CONF=openssl_pkcs11.cnf openssl dgst -engine pkcs11 -verify "pkcs11:token=Token4" -keyform engine -signature Slot4prvkey.sig -sha256 test.txt
 
 
 if [ $ErrorCount -ne 0 ]; then 

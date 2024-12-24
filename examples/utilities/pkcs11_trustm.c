@@ -3767,11 +3767,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                     &pxObjectValue,
                     &ulLength
                 ); 
-                printf("Object Value: ");
-                for (int i = 0; i < ulLength; i++) {
-                        printf("%02X ", pxObjectValue[i]);
-                }
-                printf("\n");
                 if (CKR_OK != xResult) {
                     PKCS11_PRINT(
                         "ERROR: C_GetAttributeValue: Get public key %d MODULUS from Optiga failed with error 0x%X\r\n",
@@ -3786,9 +3781,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                         0x02,  // Tag for the modulus (DER INTEGER)
                         &iModulusLen
                     );
-                if (pModulus == NULL) {
-                        printf("Modulus tag (0x02) not found.\n");
-                }
                 xResult = check_and_copy_attribute(
                     xObject,
                     "CKA_MODULUS",
