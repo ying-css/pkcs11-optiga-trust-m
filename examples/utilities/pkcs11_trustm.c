@@ -1098,10 +1098,10 @@ uint8_t *Find_TLV_Tag(uint8_t *parray, uint8_t tag, int *plen) {
     if (plen != NULL)
         *plen = 0;
     arraylen = GetBERlen(parray, &ind) + ind;  // Get ASN.1 encoded length of the found object
-
     for (ind = 0; ind < arraylen; ind++) {
-        if (parray[ind] == tag) {  // Compare with tag we are looking for         
-            *plen = GetBERlen(parray, &ind);
+        if (parray[ind] == tag) {  // Compare with tag we are looking for
+			if (plen != NULL)         
+				*plen = GetBERlen(parray, &ind);
             return parray + ind;  // Return pointer to the Tag
         }
     }
@@ -1110,11 +1110,11 @@ uint8_t *Find_TLV_Tag(uint8_t *parray, uint8_t tag, int *plen) {
 /*-------------------------------------------------------------------------------
     Search DER TLV data array, find tag 03, remove preceeding data
  -------------------------------------------------------------------------------*/
-int find_public_key_in_der(uint8_t *der) {
+int find_public_key_in_der(uint8_t *der, uint8_t tag) {
     if (der[0] == 0x30)  // DER header tag present in the object data
     {
         int iPubKeyLen;
-        uint8_t *pPubKey = Find_TLV_Tag(der, 0x03, &iPubKeyLen);  // Get pointer to Tag 0x03 value
+        uint8_t *pPubKey = Find_TLV_Tag(der, tag, &iPubKeyLen);  // Get pointer to Tag 0x03 value
         if (pPubKey != NULL && iPubKeyLen != 0)
             memmove(der, pPubKey, iPubKeyLen);  // Remove header from the DER public key encoding
         return iPubKeyLen;
@@ -4669,14 +4669,15 @@ CK_DEFINE_FUNCTION(CK_RV, C_Verify)
             PKCS11_PRINT("ERROR: C_Verify: Failed to extract Public Key from Optiga\r\n");
             return CKR_DEVICE_ERROR;
         }
-        tempLen = find_public_key_in_der(temp);
-        HEXDUMP("Pub.Key: ", temp, tempLen);
+
 
         /*- - - - - - - - Perform an ECDSA verification. - - - - - - - - */
         trustm_TimerStart();
         trustm_crypt_ShieldedConnection(OPTIGA_COMMS_FULL_PROTECTION);
 
         if (pxSession->verify_mechanism == CKM_ECDSA) {
+			tempLen = find_public_key_in_der(temp, 0x03);
+			HEXDUMP("Pub.Key: ", temp, tempLen);
             xPublicKeyDetails.public_key = temp;
             xPublicKeyDetails.length = tempLen;
             xPublicKeyDetails.key_type = pxSession->key_alg_id;
@@ -4698,6 +4699,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Verify)
             );
         }
         else if (CKR_OK == set_valid_rsa_signature_scheme(pxSession->verify_mechanism, &rsa_signature_scheme)) {
+			tempLen = find_public_key_in_der(temp, 0x02);
+			HEXDUMP("Pub.Key: ", temp, tempLen);
             xPublicKeyDetails.public_key = temp;
             xPublicKeyDetails.length = tempLen;
             xPublicKeyDetails.key_type = pxSession->key_alg_id;       
