@@ -823,12 +823,12 @@ CK_RV optiga_trustm_sign_data(
     uint8_t ecSignature[pkcs11ECDSA_P521_SIGNATURE_LENGTH + 3 + 3];
     uint16_t ecSignatureLength = sizeof(ecSignature);
     optiga_rsa_signature_scheme_t rsa_signature_scheme = 0;
-
+    uint8_t data_pos = 0;
     HEXDUMP("TRACE: C_Sign...: Signing data: ", pucData, ulDataLen);
 
     trustm_TimerStart();
     trustm_crypt_ShieldedConnection(OPTIGA_COMMS_FULL_PROTECTION);
-
+	
     if (sign_mechanism == CKM_ECDSA) {
         PKCS11_DEBUG("TRACE: C_Sign...(ECC): OID: 0x%X. KeyType: 0x%X\r\n", oid, key_alg_id);
         optiga_lib_return = optiga_crypt_ecdsa_sign(
@@ -866,12 +866,51 @@ CK_RV optiga_trustm_sign_data(
             oid,
             rsa_signature_scheme
         );
+		
+        switch (rsa_signature_scheme) {
+            case OPTIGA_RSASSA_PKCS1_V15_SHA256:
+            {
+                if (ulDataLen == 32) {
+                    data_pos = 0;
+                }
+                else {
+                    data_pos = SHA256_RSA_PKCS_PSS_HEADER_LENGTH + 1;
+                    ulDataLen = 32;
+                }
+                break;
+            }
+            case OPTIGA_RSASSA_PKCS1_V15_SHA384:
+            {
+                if (ulDataLen == 64) {
+                    data_pos = 0;
+                }
+                else {
+                    data_pos = SHA384_RSA_PKCS_PSS_HEADER_LENGTH + 1;
+                    ulDataLen = 64;
+                }
+                break;
+            }
+            case OPTIGA_RSASSA_PKCS1_V15_SHA512:
+            {
+                if (ulDataLen == 64) {
+                    data_pos = 0;
+                }
+                else {
+                    data_pos = SHA512_RSA_PKCS_PSS_HEADER_LENGTH + 1;;
+                    ulDataLen = 64;
+                }
+                break;
+            }
+            default:
+                break;
+        }
+		
         uint8_t rsaSignature[pkcs11RSA_2048_SIGNATURE_LENGTH + 11];
         uint16_t rsaSignatureLength = sizeof(rsaSignature);
         optiga_lib_return = optiga_crypt_rsa_sign(
             pkcs11_context.object_list.optiga_crypt_instance,
             rsa_signature_scheme,
-            pucData,
+            pucData+data_pos,
             ulDataLen,
             oid,
             rsaSignature,
@@ -1121,6 +1160,59 @@ int find_public_key_in_der(uint8_t *der, uint8_t tag) {
     }
     return 0;
 }
+
+/*-------------------------------------------------------------------------------
+    Extract the EC Point from the DER data array
+ -------------------------------------------------------------------------------*/
+uint8_t *extract_ECPoint_from_der(uint8_t *der, int *plen) {
+	int i = 0;
+
+    // Verify that it starts with a SEQUENCE (0x30)
+    if (der[i++] != 0x30) {
+        PKCS11_PRINT("Error: Not a valid DER sequence.\n");
+        return NULL;
+    }
+
+    // Skip the total length (single-byte length assumed)
+    if (der[i] & 0x80) {
+        PKCS11_PRINT("Error: Multi-byte length not supported.\n");
+        return NULL;
+    }
+    i++; // Skip length byte
+
+    // Look for the algorithm identifier SEQUENCE (0x30)
+    if (der[i++] != 0x30) {
+        fprintf(stderr, "Error: Missing algorithm identifier sequence.\n");
+        return NULL;
+    }
+
+    // Skip the length and content of the algorithm identifier
+    i += der[i]+1;
+
+    // Check for BIT STRING (0x03)
+    if (der[i++] != 0x03) {
+        PKCS11_PRINT("Error: Missing BIT STRING.\n");
+        return NULL;
+    }
+
+    // Get the length of the BIT STRING
+    int bit_string_length = der[i++];
+    if (der[i++] != 0x00) { // Skip the unused bits byte (should be 0x00)
+        fprintf(stderr, "Error: Unsupported BIT STRING format.\n");
+        return NULL;
+    }
+	
+    // Verify that the key starts with 0x04 (uncompressed format)
+    if (der[i] != 0x04) {
+        fprintf(stderr, "Error: Not an uncompressed EC point.\n");
+        return NULL;
+    }
+	
+	*plen = bit_string_length - 1;
+	
+	return der+i;
+}
+	
 /*************************************************************************
  * @brief Finds first available session handle and allocate memory for 
  * the session handle structure. Track all handles and allocated memory.
@@ -3492,26 +3584,16 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                 }
                 if (pxObjectValue[0] == 0x30)  // DER header tag present in the object data
                 {
-                    int iPubKeyLen;
-                    uint8_t *pPubKey = Find_TLV_Tag(
-                        pxObjectValue,
-                        0x03,
-                        &iPubKeyLen
-                    );  // Get pointer to Tag 0x03 value
-                    //~ if (pPubKey != NULL && iPubKeyLen != 0) {
-                        //~ ulLength = iPubKeyLen + 2;
-                        //~ memmove(
-                            //~ pxObjectValue,
-                            //~ pPubKey,
-                            //~ ulLength
-                        //~ );  // Remove header from the DER public key encoding
-                    //~ }
+                    int ecpoint_len;
+                    uint8_t *ec_point = extract_ECPoint_from_der(pxObjectValue, &ecpoint_len);
+                    ulLength = ecpoint_len;
+                    memmove(pxObjectValue, ec_point, ulLength);                            					
                 } else if (pxObjectValue[0] == 0)
                     ulLength =
                         67;  // Pub key not written (ex., Slot 0 IFX provisioned - default - EC 256 bit - all zero bytes)
                 xResult = check_and_copy_attribute(
                     xObject,
-                    "CKA_VALUE",
+                    "CKA_EC_POINT",
                     pxTemplate,
                     iAttrib,
                     (void *)pxObjectValue,
@@ -3754,19 +3836,40 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                 break;
                 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
             case CKA_MODULUS:
-            if (xClass != CKO_PUBLIC_KEY) {
+                CK_OBJECT_HANDLE xPalHandle_Modulus = xPalHandle;
+
+                if (xClass != CKO_PRIVATE_KEY && xClass != CKO_PUBLIC_KEY) {
                     xResult = CKR_ATTRIBUTE_TYPE_INVALID;
                     break;
                 }
+
+                if (xClass == CKO_PRIVATE_KEY) {
+                    // For RSA private key pass in the modulus of the respective public key
+                    if (optiga_objects_list[xPalHandle].key_type == CKK_RSA) {
+                        if (optiga_objects_list[xPalHandle].slot_id == 0x04) {
+                            // Set the handle to 15 (Slot 4 Pub key)
+                            xPalHandle_Modulus = 0x0F;
+                        }
+                        if (optiga_objects_list[xPalHandle].slot_id == 0x05) {
+                            // Set the handle to 18 (Slot 5 Pub key)
+                            xPalHandle_Modulus = 0x12;
+                        }
+                    }
+                    else {
+                        xResult = CKR_ATTRIBUTE_TYPE_INVALID;
+                        break;
+                    }
+				}
                 PKCS11_DEBUG(
                     "TRACE: C_GetAttributeValue: CKA_MODULUS: Getting object: %d from Optiga\r\n",
                     (int)xObject
                 );
+                
                 xResult = get_object_value(
-                    xPalHandle,
+                    xPalHandle_Modulus,
                     &pxObjectValue,
                     &ulLength
-                ); 
+                );
                 if (CKR_OK != xResult) {
                     PKCS11_PRINT(
                         "ERROR: C_GetAttributeValue: Get public key %d MODULUS from Optiga failed with error 0x%X\r\n",
@@ -3781,6 +3884,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                         0x02,  // Tag for the modulus (DER INTEGER)
                         &iModulusLen
                     );
+                if (pModulus == NULL) {
+                    xResult = get_object_value(
+                        xPalHandle_Modulus,
+                        &pxObjectValue,
+                        &ulLength
+                    );
+                }
                 xResult = check_and_copy_attribute(
                     xObject,
                     "CKA_MODULUS",

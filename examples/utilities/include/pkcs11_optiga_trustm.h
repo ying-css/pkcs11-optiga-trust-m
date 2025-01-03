@@ -226,6 +226,13 @@
  */
 #define pkcs11RSA_2048_SIGNATURE_LENGTH (pkcs11RSA_2048_MODULUS_BITS / 8)
 
+/**
+ *  @brief Length of PKCS11 RSA Hashing algorightm header based on PSS Padding scheme
+ */ 
+#define SHA256_RSA_PKCS_PSS_HEADER_LENGTH	19
+#define SHA384_RSA_PKCS_PSS_HEADER_LENGTH	19
+#define SHA512_RSA_PKCS_PSS_HEADER_LENGTH	19
+
 #include "pkcs11.h"
 
 /* System dependencies.  */
