@@ -40,7 +40,7 @@ echo "======>Read out the Public Key"
 OPENSSL_CONF=openssl_pkcs11.cnf openssl pkey -engine pkcs11 -in "pkcs11:token=Token1" -pubin -pubout -text -inform engine
 
 echo "======>Generate CSR"
-#OPENSSL_CONF=openssl_pkcs11.cnf openssl req -new -engine pkcs11 -key "pkcs11:token=Token1" -keyform engine -out new_device.csr -subj "/CN=TrustM"
+OPENSSL_CONF=openssl_pkcs11.cnf openssl req -new -engine pkcs11 -key "pkcs11:token=Token1" -keyform engine -out new_device.csr -subj "/CN=TrustM"
 
 echo "======>Sign with private key"	
 OPENSSL_CONF=openssl_pkcs11.cnf openssl dgst -engine pkcs11 -sign "pkcs11:token=Token1" -keyform engine -out signature.bin -sha256 test.txt

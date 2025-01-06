@@ -3561,16 +3561,39 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                 break;
             /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
             case CKA_EC_POINT:
-                if (xClass != CKO_PUBLIC_KEY) {
+                CK_OBJECT_HANDLE xPalHandle_ECPoint = xPalHandle;
+
+                if (xClass != CKO_PRIVATE_KEY && xClass != CKO_PUBLIC_KEY) {
                     xResult = CKR_ATTRIBUTE_TYPE_INVALID;
                     break;
                 }
+                if (xClass == CKO_PRIVATE_KEY) {
+                    // For EC private key pass in the modulus of the respective public key
+                    if (optiga_objects_list[xPalHandle].key_type == CKK_EC) {
+                        if (optiga_objects_list[xPalHandle].slot_id == 0x01) {
+                            // Set the handle to 6 (Slot 1 Pub key)
+                            xPalHandle_ECPoint = 0x06;
+                        }
+                        if (optiga_objects_list[xPalHandle].slot_id == 0x02) {
+                            // Set the handle to 9 (Slot 2 Pub key)
+                            xPalHandle_ECPoint = 0x9;
+                        }
+                        if (optiga_objects_list[xPalHandle].slot_id == 0x03) {
+                            // Set the handle to 12 (Slot 3 Pub key)
+                            xPalHandle_ECPoint = 0x0C;
+                        }
+                    }
+                    else {
+                        xResult = CKR_ATTRIBUTE_TYPE_INVALID;
+                        break;
+                    }
+				}
                 PKCS11_DEBUG(
                     "TRACE: C_GetAttributeValue: CKA_EC_POINT: Getting object: %d from Optiga\r\n",
                     (int)xObject
                 );
                 xResult = get_object_value(
-                    xPalHandle,
+                    xPalHandle_ECPoint,
                     &pxObjectValue,
                     &ulLength
                 ); /* Read object from Optiga to a buffer - allocates dynamic memory */
