@@ -1165,53 +1165,91 @@ int find_public_key_in_der(uint8_t *der, uint8_t tag) {
     Extract the EC Point from the DER data array
  -------------------------------------------------------------------------------*/
 uint8_t *extract_ECPoint_from_der(uint8_t *der, int *plen) {
-	int i = 0;
+    int i = 0;
 
-    // Verify that it starts with a SEQUENCE (0x30)
+    //Verify that the DER starts with a SEQUENCE (0x30)
     if (der[i++] != 0x30) {
         PKCS11_PRINT("Error: Not a valid DER sequence.\n");
         return NULL;
     }
 
-    // Skip the total length (single-byte length assumed)
-    if (der[i] & 0x80) {
-        PKCS11_PRINT("Error: Multi-byte length not supported.\n");
-        return NULL;
+    //Decode the SEQUENCE length
+    int total_length = 0;
+    if (der[i] & 0x80) {  // Multi-byte length
+        int length_bytes = der[i++] & 0x7F;
+        if (length_bytes > sizeof(int)) {
+            PKCS11_PRINT("Error: Length field too large.\n");
+            return NULL;
+        }
+        for (int j = 0; j < length_bytes; j++) {
+            total_length = (total_length << 8) | der[i++];
+        }
+    } else {  // Single-byte length
+        total_length = der[i++];
     }
-    i++; // Skip length byte
 
-    // Look for the algorithm identifier SEQUENCE (0x30)
+    //Verify the algorithm identifier SEQUENCE (0x30)
     if (der[i++] != 0x30) {
-        fprintf(stderr, "Error: Missing algorithm identifier sequence.\n");
+        PKCS11_PRINT("Error: Missing algorithm identifier sequence.\n");
         return NULL;
     }
 
-    // Skip the length and content of the algorithm identifier
-    i += der[i]+1;
+    //Decode the algorithm identifier length
+    int alg_length = 0;
+    if (der[i] & 0x80) {  // Multi-byte length
+        int length_bytes = der[i++] & 0x7F;
+        if (length_bytes > sizeof(int)) {
+            PKCS11_PRINT("Error: Algorithm identifier length too large.\n");
+            return NULL;
+        }
+        for (int j = 0; j < length_bytes; j++) {
+            alg_length = (alg_length << 8) | der[i++];
+        }
+    } else {  // Single-byte length
+        alg_length = der[i++];
+    }
 
-    // Check for BIT STRING (0x03)
+    //Skip the content of the algorithm identifier
+    i += alg_length;
+
+    //Check for the BIT STRING (0x03)
     if (der[i++] != 0x03) {
         PKCS11_PRINT("Error: Missing BIT STRING.\n");
         return NULL;
     }
 
-    // Get the length of the BIT STRING
-    int bit_string_length = der[i++];
-    if (der[i++] != 0x00) { // Skip the unused bits byte (should be 0x00)
-        fprintf(stderr, "Error: Unsupported BIT STRING format.\n");
+    //Decode the BIT STRING length
+    int bit_string_length = 0;
+    if (der[i] & 0x80) {  // Multi-byte length
+        int length_bytes = der[i++] & 0x7F;
+        if (length_bytes > sizeof(int)) {
+            PKCS11_PRINT("Error: BIT STRING length too large.\n");
+            return NULL;
+        }
+        for (int j = 0; j < length_bytes; j++) {
+            bit_string_length = (bit_string_length << 8) | der[i++];
+        }
+    } else {  // Single-byte length
+        bit_string_length = der[i++];
+    }
+
+    //Skip the unused bits byte (should be 0x00)
+    if (der[i++] != 0x00) {
+        PKCS11_PRINT("Error: Unsupported BIT STRING format.\n");
         return NULL;
     }
-	
-    // Verify that the key starts with 0x04 (uncompressed format)
+
+    //Verify that the EC point starts with 0x04 (uncompressed format)
     if (der[i] != 0x04) {
-        fprintf(stderr, "Error: Not an uncompressed EC point.\n");
+        PKCS11_PRINT("Error: Not an uncompressed EC point.\n");
         return NULL;
     }
-	
-	*plen = bit_string_length - 1;
-	
-	return der+i;
+
+    *plen = bit_string_length - 1;  // Length of the EC point (excluding the 0x04 prefix)
+
+    return der + i;
 }
+
 	
 /*************************************************************************
  * @brief Finds first available session handle and allocate memory for 
