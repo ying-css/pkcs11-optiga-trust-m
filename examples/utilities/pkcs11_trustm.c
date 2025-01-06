@@ -3561,6 +3561,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                 break;
             /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
             case CKA_EC_POINT:
+            {
                 CK_OBJECT_HANDLE xPalHandle_ECPoint = xPalHandle;
 
                 if (xClass != CKO_PRIVATE_KEY && xClass != CKO_PUBLIC_KEY) {
@@ -3622,6 +3623,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                     (void *)pxObjectValue,
                     ulLength
                 );
+            }
                 break;
             /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
             case CKA_CERTIFICATE_TYPE:
@@ -3859,6 +3861,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                 break;
                 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
             case CKA_MODULUS:
+            {
                 CK_OBJECT_HANDLE xPalHandle_Modulus = xPalHandle;
 
                 if (xClass != CKO_PRIVATE_KEY && xClass != CKO_PUBLIC_KEY) {
@@ -3922,6 +3925,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                     (void *)pModulus,
                     iModulusLen
                 );
+            }
                 break;
             case CKA_MODULUS_BITS:
                 switch ((int)pxSession->key_alg_id) {
