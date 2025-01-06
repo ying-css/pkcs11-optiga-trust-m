@@ -874,7 +874,7 @@ CK_RV optiga_trustm_sign_data(
                     data_pos = 0;
                 }
                 else {
-                    data_pos = SHA256_RSA_PKCS_PSS_HEADER_LENGTH + 1;
+                    data_pos = SHA256_RSA_PKCS_PSS_HEADER_LENGTH;
                     ulDataLen = 32;
                 }
                 break;
@@ -885,7 +885,7 @@ CK_RV optiga_trustm_sign_data(
                     data_pos = 0;
                 }
                 else {
-                    data_pos = SHA384_RSA_PKCS_PSS_HEADER_LENGTH + 1;
+                    data_pos = SHA384_RSA_PKCS_PSS_HEADER_LENGTH;
                     ulDataLen = 64;
                 }
                 break;
@@ -896,7 +896,7 @@ CK_RV optiga_trustm_sign_data(
                     data_pos = 0;
                 }
                 else {
-                    data_pos = SHA512_RSA_PKCS_PSS_HEADER_LENGTH + 1;;
+                    data_pos = SHA512_RSA_PKCS_PSS_HEADER_LENGTH;
                     ulDataLen = 64;
                 }
                 break;

@@ -42,7 +42,8 @@ echo "======>Generate CSR"
 OPENSSL_CONF=openssl_pkcs11.cnf openssl req -new -engine pkcs11 -key "pkcs11:token=Token4" -keyform engine -out new_device.csr -subj "/CN=TrustM"
 
 echo "======>RSA sign"	
-OPENSSL_CONF=openssl_pkcs11.cnf openssl dgst -engine pkcs11 -sign "pkcs11:token=Token4" -keyform engine -out signature.bin -sha256 test.txt
+OPENSSL_CONF=openssl_pkcs11.cnf openssl dgst -engine pkcs11 -sign "pkcs11:token=Token4" -keyform engine -out Slot4prvkey.sig -sha256 test.txt
+#./pd --slot 4 --sign --mechanism RSA-PKCS --input-file test.sha --output-file Slot4prvkey.sig
 
 echo "======>Verify signature"	
 OPENSSL_CONF=openssl_pkcs11.cnf openssl dgst -engine pkcs11 -verify "pkcs11:token=Token4" -keyform engine -signature Slot4prvkey.sig -sha256 test.txt
