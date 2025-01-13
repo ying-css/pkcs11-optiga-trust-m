@@ -3649,6 +3649,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                 {
                     int ecpoint_len;
                     uint8_t *ec_point = extract_ECPoint_from_der(pxObjectValue, &ecpoint_len);
+                    if (ec_point == NULL) {
+                        xResult = CKR_DATA_INVALID;
+                        break;
+                    }
                     ulLength = ecpoint_len;
                     memmove(pxObjectValue, ec_point, ulLength);                            					
                 } else if (pxObjectValue[0] == 0)
@@ -3996,7 +4000,16 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                     default:
                         PKCS11_PRINT("ERROR: C_GetAttributeValue: Unknown RSA key size\r\n");
                         xResult = CKR_ATTRIBUTE_TYPE_INVALID;
+                        break;
                 }
+                xResult = check_and_copy_attribute(
+                    xObject,
+                    "CKA_MODULUS_BITS",
+                    pxTemplate,
+                    iAttrib,
+                    &pxSession->rsa_key_size,
+                    sizeof(pxSession->rsa_key_size)
+                );
                 break;
             case CKA_PUBLIC_EXPONENT:
                 if (pxSession->key_alg_id == OPTIGA_RSA_KEY_2048_BIT_EXPONENTIAL || OPTIGA_RSA_KEY_1024_BIT_EXPONENTIAL) {
