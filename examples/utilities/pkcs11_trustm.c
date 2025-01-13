@@ -513,7 +513,8 @@ pal_os_lock_t optiga_mutex;
         LOGOPEN \
         PKCS11_PRINT("ERROR: CKR_CRYPTOKI_NOT_INITIALIZED\r\n"); \
         return CKR_CRYPTOKI_NOT_INITIALIZED; \
-    }
+    } \
+     PKCS11_DEBUG("TRACE[%d]: Enter %s\r\n",getpid(),__func__);
 
 /**************
     Macro executed at the beginning of each PKCS#11 function using a session.
@@ -534,7 +535,7 @@ pal_os_lock_t optiga_mutex;
         PKCS11_PRINT("ERROR: %s: Invalid session handle\r\n", __func__); \
         return CKR_SESSION_HANDLE_INVALID; \
     } \
-    PKCS11_DEBUG("TRACE: Enter %s. Session: 0x%X\r\n", __func__, pxSession);
+    PKCS11_DEBUG("TRACE: Enter %s. Session: 0x%X\r\n",__func__, pxSession);
 
 /**************
     Macro dumping PKCS#11 function TEMPLATE parameters to the log file.
@@ -596,6 +597,7 @@ void Semaphore_Initialize() {
     sem_timeout.tv_nsec = 0xffff;
     sem_initialized = 1;
 #endif
+    pal_os_lock_acquire(&optiga_mutex);
 }
 /*-------------------------------------------------------------------------
    Shutdown/Destroy Semaphores
@@ -608,6 +610,7 @@ void Semaphore_Shutdown() {
 #endif
     sem_initialized = 0;
 #endif
+    pal_os_lock_release(&optiga_mutex);
 }
 /*-------------------------------------------------------------------------
    Wait until Semaphore released (with timeout)
@@ -1185,8 +1188,8 @@ static CK_FUNCTION_LIST prvP11FunctionList = {
     C_OpenSession,
     C_CloseSession,
     NULL, /*C_CloseAllSessions, - implemented, but not supported by OpenSC pkcs11-spy based on PKCS#11 ver.2.11 */
-    NULL, /*C_GetSessionInfo*/
-    NULL, /*C_GetOperationState*/
+    C_GetSessionInfo,
+    C_GetOperationState,
     NULL, /*C_SetOperationState*/
     C_Login,
     C_Logout,
@@ -1437,8 +1440,10 @@ CK_RV optiga_trustm_initialize(void) {
     pal_status_t pal_status;
     uint16_t dOptigaOID;
     static uint8_t host_pair_done = 1;
-    pal_os_lock_acquire(&optiga_mutex);
+    
     PKCS11_DEBUG("TRACE: Enter optiga_trustm_initialize\r\n");
+    //pal_os_lock_acquire(&optiga_mutex);
+   
     do {
         if ((pal_status = pal_gpio_init(&optiga_reset_0)) != PAL_STATUS_SUCCESS) {
             PKCS11_PRINT(
@@ -1595,7 +1600,7 @@ CK_RV optiga_trustm_deinitialize(void) {
         PKCS11_PRINT("ERROR: optiga_trustm_deinitialize: pal_gpio_init(VDD) failed\r\n");
         xResult = CKR_FUNCTION_FAILED;
     }
-    pal_os_lock_release(&optiga_mutex);
+    //pal_os_lock_release(&optiga_mutex);
     PKCS11_DEBUG("TRACE: Exit optiga_trustm_deinitialize. Result: 0x%04X\r\n", (int)xResult);
     return xResult;
 }
@@ -2800,7 +2805,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pvInitArgs) {
 
     CK_RV xResult = CKR_OK;
     LOGOPEN
-    PKCS11_DEBUG("TRACE: C_Initialize\r\n");
+    PKCS11_DEBUG("TRACE[%d]: Enter %s\r\n",getpid(),__func__);
     PKCS11_DEBUG(
         "%s %s PKCS#11 library ver.%d.%d\r\n",
         LIBRARY_MANUFACTURER,
@@ -2811,14 +2816,14 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pvInitArgs) {
 
     /* Ensure that the FreeRTOS heap is used. */
     //        CRYPTO_ConfigureHeap();
-
+    Semaphore_Initialize();
     if (pkcs11_context.is_initialized != CK_TRUE) {
         memset(
             &pkcs11_context,
             0,
             sizeof(pkcs11_context)
         );  // Clean up all context including .is_initialized flag
-        Semaphore_Initialize();
+        
         /*
          *   Reset OPTIGA(TM) Trust M and open an application on it
          */
@@ -2832,7 +2837,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pvInitArgs) {
             Semaphore_Shutdown();
         }
     } else {
-        xResult = CKR_CRYPTOKI_ALREADY_INITIALIZED;
+        //xResult = CKR_CRYPTOKI_ALREADY_INITIALIZED;
+        xResult = CKR_OK;
     }
     return xResult;
 }
@@ -2841,8 +2847,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pvInitArgs) {
  **************************************************************************/
 CK_DEFINE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pvReserved) {
     PKCS11_MODULE_INITIALIZED
-    PKCS11_DEBUG("TRACE: Enter %s\r\n", __func__);
-
+    PKCS11_DEBUG("TRACE[%d]: Enter %s\r\n",getpid(),__func__);
     if (NULL != pvReserved) {
         xResult = CKR_ARGUMENTS_BAD;
     } else {
@@ -2901,8 +2906,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetFunctionList)(CK_FUNCTION_LIST_PTR_PTR ppxFunctio
     CK_RV xResult = CKR_OK;
 
     LOGOPEN
-    PKCS11_DEBUG("TRACE: %s\r\n", __func__);
-
+    PKCS11_DEBUG("TRACE[%d]: Enter %s\r\n",getpid(),__func__);
     if (NULL == ppxFunctionList) {
         xResult = CKR_ARGUMENTS_BAD;
     } else {
@@ -3161,6 +3165,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_OpenSession)
  CK_NOTIFY xNotify,
  CK_SESSION_HANDLE_PTR pxSession) {
     PKCS11_MODULE_INITIALIZED
+    
 
     p_pkcs11_session_t pxSessionObj = NULL;
 
@@ -3212,6 +3217,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_OpenSession)
     if ((NULL != pxSessionObj) && (CKR_OK != xResult)) {
         free(pxSessionObj);
     }
+    PKCS11_DEBUG("TRACE[%d]: Enter %s. Session: 0x%X\r\n", getpid(),__func__, *pxSession);
     return xResult;
 }
 /**************************************************************************
@@ -3222,6 +3228,68 @@ CK_DEFINE_FUNCTION(CK_RV, C_CloseSession)(CK_SESSION_HANDLE xSession) {
     free_session_pointer(xSession);
     return xResult;
 }
+/**************************************************************************
+ * @brief Return session info with slot ID and state.
+ **************************************************************************/
+CK_DEFINE_FUNCTION(CK_RV, C_GetSessionInfo)
+(CK_SESSION_HANDLE xSession, 
+ CK_SESSION_INFO_PTR pInfo) {
+    if (pInfo == NULL) {
+        return CKR_ARGUMENTS_BAD;
+    }
+    PKCS11_MODULE_INITIALIZED_AND_SESSION_VALID(xSession);
+    // p_pkcs11_session_t pxSession = get_session_pointer(xSession);
+    // if (pxSession == NULL) {
+    //     return CKR_SESSION_HANDLE_INVALID;
+    // }
+
+    pInfo->slotID = pxSession->slot_id;
+    pInfo->state = pxSession->state;
+    //pInfo->flags = pxSession->flags;
+    //pInfo->ulDeviceError = pxSession->ulDeviceError;
+
+    return CKR_OK;
+ }
+/**************************************************************************
+ * @brief Return operation state.
+ **************************************************************************/
+CK_DEFINE_FUNCTION(CK_RV, C_GetOperationState)
+(CK_SESSION_HANDLE xSession, 
+ CK_BYTE_PTR pOperationState, 
+ CK_ULONG_PTR pulOperationStateLen) {
+    
+    PKCS11_MODULE_INITIALIZED_AND_SESSION_VALID(xSession);
+    return CKR_FUNCTION_NOT_SUPPORTED;
+/*     if (pulOperationStateLen == NULL)
+    {
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    p_pkcs11_session_t pxSession = get_session_pointer(xSession);
+    if (pxSession == NULL)
+    {
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+
+    // Check if the buffer is large enough
+    if (pOperationState == NULL)
+    {
+        *pulOperationStateLen = pxSession->operationStateLen;
+        return CKR_OK;
+    }
+    else if (*pulOperationStateLen < pxSession->operationStateLen)
+    {
+        *pulOperationStateLen = pxSession->operationStateLen;
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    // Copy the operation state to the provided buffer
+    memcpy(pOperationState, pxSession->operationState, pxSession->operationStateLen);
+    *pulOperationStateLen = pxSession->operationStateLen;
+
+    return CKR_OK;
+ */}
+
 /**************************************************************************
  * @brief Terminate all sessions and release resources.
  **************************************************************************/
