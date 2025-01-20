@@ -58,7 +58,7 @@ static uint8_t sem_initialized = 0;
  * @brief Cryptoki module attribute definitions.
  */
 #define PKCS11_MAX_SLOTS 6
-static const uint8_t rsa_public_exponent[] = {0x01, 0x00, 0x01}; // 65537 in hexadecimal.
+static const uint8_t rsa_public_exponent[] = {0x01, 0x00, 0x01};  // 65537 in hexadecimal.
 #define RSA_PUBLIC_EXPONENT_LENGTH sizeof(rsa_public_exponent)
 
 #define PKCS11_MAX_MECHANISMS 30
@@ -140,16 +140,45 @@ uint8_t header_BP512[] = {
     0x3D,
     0x02,
     0x01};
-uint8_t rsaheader2048[] = {0x30,0x82,0x01,0x22, // SEQUENCE
-                            0x30,0x0d,          // SEQUENCE
-                            0x06,0x09,          // OID : 1.2.840.113549.1.1.1
-                            0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01,0x01,
-                            0x05,0x00};         // NULL
-uint8_t rsaheader1024[] = {0x30,0x81,0x9F,      // SEQUENCE
-                            0x30,0x0D,          // SEQUENCE
-                            0x06,0x09,          // OID : 1.2.840.113549.1.1.1
-                            0x2A,0x86,0x48,0x86,0xF7,0x0D,0x01,0x01,0x01,
-                            0x05,0x00};         // NULL                            
+uint8_t rsaheader2048[] = {
+    0x30,
+    0x82,
+    0x01,
+    0x22,  // SEQUENCE
+    0x30,
+    0x0d,  // SEQUENCE
+    0x06,
+    0x09,  // OID : 1.2.840.113549.1.1.1
+    0x2a,
+    0x86,
+    0x48,
+    0x86,
+    0xf7,
+    0x0d,
+    0x01,
+    0x01,
+    0x01,
+    0x05,
+    0x00};  // NULL
+uint8_t rsaheader1024[] = {
+    0x30,
+    0x81,
+    0x9F,  // SEQUENCE
+    0x30,
+    0x0D,  // SEQUENCE
+    0x06,
+    0x09,  // OID : 1.2.840.113549.1.1.1
+    0x2A,
+    0x86,
+    0x48,
+    0x86,
+    0xF7,
+    0x0D,
+    0x01,
+    0x01,
+    0x01,
+    0x05,
+    0x00};  // NULL
 uint8_t ec_param_p256[] = pkcs11DER_ENCODED_OID_P256;
 uint8_t ec_param_p384[] = pkcs11DER_ENCODED_OID_P384;
 uint8_t ec_param_p521[] = pkcs11DER_ENCODED_OID_P521;
@@ -828,7 +857,7 @@ CK_RV optiga_trustm_sign_data(
 
     trustm_TimerStart();
     trustm_crypt_ShieldedConnection(OPTIGA_COMMS_FULL_PROTECTION);
-	
+
     if (sign_mechanism == CKM_ECDSA) {
         PKCS11_DEBUG("TRACE: C_Sign...(ECC): OID: 0x%X. KeyType: 0x%X\r\n", oid, key_alg_id);
         optiga_lib_return = optiga_crypt_ecdsa_sign(
@@ -859,43 +888,36 @@ CK_RV optiga_trustm_sign_data(
             return optiga_lib_return;
         }
         asn1_to_ecdsa_rs(ecSignature, ecSignatureLength, pucSignature, xSignatureLength);
-    }
-    else if (CKR_OK == set_valid_rsa_signature_scheme(sign_mechanism, &rsa_signature_scheme)) {
+    } else if (CKR_OK == set_valid_rsa_signature_scheme(sign_mechanism, &rsa_signature_scheme)) {
         PKCS11_DEBUG(
             "TRACE: C_Sign...(RSA): OID: 0x%X. Signature scheme: 0x%X\r\n",
             oid,
             rsa_signature_scheme
         );
-		
+
         switch (rsa_signature_scheme) {
-            case OPTIGA_RSASSA_PKCS1_V15_SHA256:
-            {
+            case OPTIGA_RSASSA_PKCS1_V15_SHA256: {
                 if (ulDataLen == 32) {
                     data_pos = 0;
-                }
-                else {
+                } else {
                     data_pos = SHA256_RSA_PKCS_PSS_HEADER_LENGTH;
                     ulDataLen = 32;
                 }
                 break;
             }
-            case OPTIGA_RSASSA_PKCS1_V15_SHA384:
-            {
+            case OPTIGA_RSASSA_PKCS1_V15_SHA384: {
                 if (ulDataLen == 64) {
                     data_pos = 0;
-                }
-                else {
+                } else {
                     data_pos = SHA384_RSA_PKCS_PSS_HEADER_LENGTH;
                     ulDataLen = 64;
                 }
                 break;
             }
-            case OPTIGA_RSASSA_PKCS1_V15_SHA512:
-            {
+            case OPTIGA_RSASSA_PKCS1_V15_SHA512: {
                 if (ulDataLen == 64) {
                     data_pos = 0;
-                }
-                else {
+                } else {
                     data_pos = SHA512_RSA_PKCS_PSS_HEADER_LENGTH;
                     ulDataLen = 64;
                 }
@@ -904,13 +926,13 @@ CK_RV optiga_trustm_sign_data(
             default:
                 break;
         }
-		
+
         uint8_t rsaSignature[pkcs11RSA_2048_SIGNATURE_LENGTH + 11];
         uint16_t rsaSignatureLength = sizeof(rsaSignature);
         optiga_lib_return = optiga_crypt_rsa_sign(
             pkcs11_context.object_list.optiga_crypt_instance,
             rsa_signature_scheme,
-            pucData+data_pos,
+            pucData + data_pos,
             ulDataLen,
             oid,
             rsaSignature,
@@ -931,8 +953,7 @@ CK_RV optiga_trustm_sign_data(
             );
             return optiga_lib_return;
         }
-    }
-    else {
+    } else {
         PKCS11_PRINT("ERROR: C_Sign...: Wrong mechanism: 0x%X\r\n", sign_mechanism);
         return OPTIGA_UTIL_ERROR;
     }
@@ -1137,12 +1158,12 @@ uint8_t *Find_TLV_Tag(uint8_t *parray, uint8_t tag, int *plen) {
     if (plen != NULL)
         *plen = 0;
     arraylen = GetBERlen(parray, &ind) + ind;  // Get ASN.1 encoded length of the found object
-    for (ind = 0; ind < arraylen; ind ++) {
+    for (ind = 0; ind < arraylen; ind++) {
         if (parray[ind] == tag) {  // Compare with tag we are looking for
-			if (plen != NULL) {
-                *plen = arraylen-ind;
+            if (plen != NULL) {
+                *plen = arraylen - ind;
             }
-            return parray+ind;  // Return pointer to the Tag
+            return parray + ind;  // Return pointer to the Tag
         }
     }
     return NULL;
@@ -1251,7 +1272,6 @@ uint8_t *extract_ECPoint_from_der(uint8_t *der, int *plen) {
     return der + i;
 }
 
-	
 /*************************************************************************
  * @brief Finds first available session handle and allocate memory for 
  * the session handle structure. Track all handles and allocated memory.
@@ -1929,16 +1949,24 @@ upload_public_key(long lOptigaOid, uint16_t key_alg, uint8_t *pucData, uint32_t 
         HEXDUMP("Pub.key: ", pucData, ulDataSize);
 #endif
         if (key_alg == OPTIGA_RSA_KEY_1024_BIT_EXPONENTIAL) {
-            pucPubKeyDer = malloc(sizeof(rsaheader1024)+ ulDataSize + sizeof(exponent_value));             
+            pucPubKeyDer = malloc(sizeof(rsaheader1024) + ulDataSize + sizeof(exponent_value));
             memcpy(pucPubKeyDer, rsaheader1024, sizeof(rsaheader1024));
             memcpy(pucPubKeyDer + sizeof(rsaheader1024), pucData, ulDataSize);
-            memcpy(pucPubKeyDer + sizeof(rsaheader1024) + ulDataSize, exponent_value, sizeof(exponent_value));
+            memcpy(
+                pucPubKeyDer + sizeof(rsaheader1024) + ulDataSize,
+                exponent_value,
+                sizeof(exponent_value)
+            );
             ulDataSize = sizeof(rsaheader1024) + ulDataSize + sizeof(exponent_value);
         } else if (key_alg == OPTIGA_RSA_KEY_2048_BIT_EXPONENTIAL) {
-            pucPubKeyDer = malloc(sizeof(rsaheader2048)+ ulDataSize + sizeof(exponent_value));             
+            pucPubKeyDer = malloc(sizeof(rsaheader2048) + ulDataSize + sizeof(exponent_value));
             memcpy(pucPubKeyDer, rsaheader2048, sizeof(rsaheader2048));
             memcpy(pucPubKeyDer + sizeof(rsaheader2048), pucData, ulDataSize);
-            memcpy(pucPubKeyDer + sizeof(rsaheader2048) + ulDataSize, exponent_value, sizeof(exponent_value));
+            memcpy(
+                pucPubKeyDer + sizeof(rsaheader2048) + ulDataSize,
+                exponent_value,
+                sizeof(exponent_value)
+            );
             ulDataSize = sizeof(rsaheader2048) + ulDataSize + sizeof(exponent_value);
         } else {
             pucPubKeyDer = malloc(ulDataSize + sizeof(ec_param_p521) + 30);
@@ -2106,9 +2134,9 @@ size_t get_key_size(int key_type) {
             return pkcs11EC_P521_PUBLIC_KEY_LENGTH;  // 0x89 = 137 = 128 + 5
             //    case OPTIGA_ECC_CURVE_BRAIN_POOL_P_512R1: return ???
         case OPTIGA_RSA_KEY_1024_BIT_EXPONENTIAL:
-            return (pkcs11RSA_1024_MODULUS_BITS/8);
+            return (pkcs11RSA_1024_MODULUS_BITS / 8);
         case OPTIGA_RSA_KEY_2048_BIT_EXPONENTIAL:
-            return (pkcs11RSA_2048_MODULUS_BITS/8);
+            return (pkcs11RSA_2048_MODULUS_BITS / 8);
     }
     return 0;
 }
@@ -2122,7 +2150,7 @@ CK_ULONG check_valid_rsa_signature_scheme(CK_MECHANISM_TYPE mechanism_type, CK_U
             if (rsa_key_size == 0)
                 return 1;  // In case key_size is not required
             return (rsa_key_size == pkcs11RSA_2048_MODULUS_BITS) ? pkcs11RSA_2048_SIGNATURE_LENGTH
-                                                             : pkcs11RSA_1024_SIGNATURE_LENGTH;
+                                                                 : pkcs11RSA_1024_SIGNATURE_LENGTH;
     }
     return 0;
 }
@@ -2144,8 +2172,10 @@ CK_ULONG check_signature_scheme_get_signature_size(
             - 1;  // Assumption that private key in slots table is followed by public key
     if (pxSession->key_alg_id == 0) {
         if (priv_key_handle != 0 && priv_key_handle < MAX_NUM_OBJECTS) {
-            if (optiga_objects_list[priv_key_handle].obj_size_key_alg != 0) {  // Check if metadata has been read before (cached)
-                pxSession->key_alg_id = optiga_objects_list[priv_key_handle].obj_size_key_alg;  // Use key_size to store alg id byte
+            if (optiga_objects_list[priv_key_handle].obj_size_key_alg
+                != 0) {  // Check if metadata has been read before (cached)
+                pxSession->key_alg_id = optiga_objects_list[priv_key_handle]
+                                            .obj_size_key_alg;  // Use key_size to store alg id byte
             } else {
                 optiga_lib_return = optiga_trustm_read_metadata(
                     optiga_objects_list[priv_key_handle].physical_oid,
@@ -2160,20 +2190,24 @@ CK_ULONG check_signature_scheme_get_signature_size(
                     );
                     return 0;
                 }
-                pAlg = Find_TLV_Tag(metadata, 0xE0, NULL);  // Get Tag E0 value (one byte) = key algorithm
+                pAlg = Find_TLV_Tag(
+                    metadata,
+                    0xE0,
+                    NULL
+                );  // Get Tag E0 value (one byte) = key algorithm
                 pxSession->key_alg_id = pAlg[2];
-                optiga_objects_list[priv_key_handle].obj_size_key_alg = pxSession->key_alg_id;  // Cache the alg id
+                optiga_objects_list[priv_key_handle].obj_size_key_alg =
+                    pxSession->key_alg_id;  // Cache the alg id
             }
         }
     }
     if (mechanism_type == CKM_ECDSA) {
         //~ if ((lSignatureSize = get_signature_size((int)pxSession->key_alg_id)) == 0) {
-            //~ PKCS11_PRINT("ERROR: Unsupported EC key type 0x%X \r\n", pxSession->key_alg_id);
-            //~ return 0;
-            lSignatureSize = get_signature_size((int)pxSession->key_alg_id);
-            PKCS11_DEBUG("TRACE: lSignatureSize = %d bytes\r\n",lSignatureSize);    
-        } 
-    else if(mechanism_type == CKM_RSA_PKCS){
+        //~ PKCS11_PRINT("ERROR: Unsupported EC key type 0x%X \r\n", pxSession->key_alg_id);
+        //~ return 0;
+        lSignatureSize = get_signature_size((int)pxSession->key_alg_id);
+        PKCS11_DEBUG("TRACE: lSignatureSize = %d bytes\r\n", lSignatureSize);
+    } else if (mechanism_type == CKM_RSA_PKCS) {
         if (pxSession->key_alg_id == OPTIGA_RSA_KEY_2048_BIT_EXPONENTIAL) {
             lSignatureSize = pkcs11RSA_2048_SIGNATURE_LENGTH;
         } else if (pxSession->key_alg_id == OPTIGA_RSA_KEY_1024_BIT_EXPONENTIAL) {
@@ -2182,12 +2216,11 @@ CK_ULONG check_signature_scheme_get_signature_size(
             PKCS11_PRINT("ERROR: Unsupported signature mechanism 0x%X \r\n", mechanism_type);
             return 0;
         }
-        PKCS11_DEBUG("TRACE: lSignatureSize = %d bytes\r\n",lSignatureSize);
+        PKCS11_DEBUG("TRACE: lSignatureSize = %d bytes\r\n", lSignatureSize);
+    } else {
+        PKCS11_PRINT("ERROR: Unknown EC/RSA key handle: 0x%X\r\n", priv_key_handle);
+        return 0;
     }
-    else {
-            PKCS11_PRINT("ERROR: Unknown EC/RSA key handle: 0x%X\r\n", priv_key_handle);
-            return 0;
-        }
     return lSignatureSize;
 }
 /**************************************************************************/
@@ -2689,9 +2722,9 @@ CK_RV verify_public_key_template(
                     session->rsa_key_size = modulus_bits;
                     if (session->rsa_key_size == pkcs11RSA_2048_MODULUS_BITS) {
                         session->key_alg_id = OPTIGA_RSA_KEY_2048_BIT_EXPONENTIAL;
-                    }else if (session->rsa_key_size == pkcs11RSA_1024_MODULUS_BITS) {
+                    } else if (session->rsa_key_size == pkcs11RSA_1024_MODULUS_BITS) {
                         session->key_alg_id = OPTIGA_RSA_KEY_1024_BIT_EXPONENTIAL;
-                    }else {
+                    } else {
                         PKCS11_PRINT("ERROR: C_GetAttributeValue: Unknown RSA key size\r\n");
                     }
                     received_attribute |= MODULUS;
@@ -3599,8 +3632,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                 );
                 break;
             /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-            case CKA_EC_POINT:
-            {
+            case CKA_EC_POINT: {
                 CK_OBJECT_HANDLE xPalHandle_ECPoint = xPalHandle;
 
                 if (xClass != CKO_PRIVATE_KEY && xClass != CKO_PUBLIC_KEY) {
@@ -3622,12 +3654,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                             // Set the handle to 12 (Slot 3 Pub key)
                             xPalHandle_ECPoint = 0x0C;
                         }
-                    }
-                    else {
+                    } else {
                         xResult = CKR_ATTRIBUTE_TYPE_INVALID;
                         break;
                     }
-				}
+                }
                 PKCS11_DEBUG(
                     "TRACE: C_GetAttributeValue: CKA_EC_POINT: Getting object: %d from Optiga\r\n",
                     (int)xObject
@@ -3654,7 +3685,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                         break;
                     }
                     ulLength = ecpoint_len;
-                    memmove(pxObjectValue, ec_point, ulLength);                            					
+                    memmove(pxObjectValue, ec_point, ulLength);
                 } else if (pxObjectValue[0] == 0)
                     ulLength =
                         67;  // Pub key not written (ex., Slot 0 IFX provisioned - default - EC 256 bit - all zero bytes)
@@ -3666,8 +3697,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                     (void *)pxObjectValue,
                     ulLength
                 );
-            }
-                break;
+            } break;
             /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
             case CKA_CERTIFICATE_TYPE:
                 xType = CKC_VENDOR_DEFINED;
@@ -3903,8 +3933,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                 );
                 break;
                 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-            case CKA_MODULUS:
-            {
+            case CKA_MODULUS: {
                 CK_OBJECT_HANDLE xPalHandle_Modulus = xPalHandle;
 
                 if (xClass != CKO_PRIVATE_KEY && xClass != CKO_PUBLIC_KEY) {
@@ -3923,22 +3952,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                             // Set the handle to 18 (Slot 5 Pub key)
                             xPalHandle_Modulus = 0x12;
                         }
-                    }
-                    else {
+                    } else {
                         xResult = CKR_ATTRIBUTE_TYPE_INVALID;
                         break;
                     }
-				}
+                }
                 PKCS11_DEBUG(
                     "TRACE: C_GetAttributeValue: CKA_MODULUS: Getting object: %d from Optiga\r\n",
                     (int)xObject
                 );
-                
-                xResult = get_object_value(
-                    xPalHandle_Modulus,
-                    &pxObjectValue,
-                    &ulLength
-                );
+
+                xResult = get_object_value(xPalHandle_Modulus, &pxObjectValue, &ulLength);
                 if (CKR_OK != xResult) {
                     PKCS11_PRINT(
                         "ERROR: C_GetAttributeValue: Get public key %d MODULUS from Optiga failed with error 0x%X\r\n",
@@ -3951,41 +3975,31 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                 int pubKeyLen;
                 int data_index = 0;
                 int modulus_length;
-                
-                uint8_t *pPubKey = Find_TLV_Tag(
-                        pxObjectValue,
-                        0x03,
-                        &pubKeyLen
-                        );
-                
+
+                uint8_t *pPubKey = Find_TLV_Tag(pxObjectValue, 0x03, &pubKeyLen);
+
                 if (pPubKey == NULL)
                     return CKR_DATA_INVALID;
-                
-                        
+
                 uint8_t *pModulus = Find_TLV_Tag(
-                        pPubKey,
-                        0x02,  // Tag for the modulus (DER INTEGER)
-                        &iModulusLen
-                    );
-                                   
+                    pPubKey,
+                    0x02,  // Tag for the modulus (DER INTEGER)
+                    &iModulusLen
+                );
+
                 modulus_length = GetBERlen(pModulus, &data_index);
                 if (pModulus == NULL) {
-                    xResult = get_object_value(
-                        xPalHandle_Modulus,
-                        &pxObjectValue,
-                        &ulLength
-                    );
+                    xResult = get_object_value(xPalHandle_Modulus, &pxObjectValue, &ulLength);
                 }
                 xResult = check_and_copy_attribute(
                     xObject,
                     "CKA_MODULUS",
                     pxTemplate,
                     iAttrib,
-                    (void *)pModulus+data_index,
+                    (void *)pModulus + data_index,
                     modulus_length
                 );
-            }
-                break;
+            } break;
             case CKA_MODULUS_BITS:
                 switch ((int)pxSession->key_alg_id) {
                     case 0:
@@ -4012,18 +4026,21 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                 );
                 break;
             case CKA_PUBLIC_EXPONENT:
-                if (pxSession->key_alg_id == OPTIGA_RSA_KEY_2048_BIT_EXPONENTIAL || OPTIGA_RSA_KEY_1024_BIT_EXPONENTIAL) {
-                xResult = check_and_copy_attribute(
-                    xObject,
-                    "CKA_PUBLIC_EXPONENT",
-                    pxTemplate,
-                    iAttrib,
-                    (void *)exp_bits,
-                    sizeof(exp_bits)
-                );
-            } else {
-                PKCS11_PRINT("ERROR: C_GetAttributeValue: Invalid key type for CKA_PUBLIC_EXPONENT\r\n");
-                xResult = CKR_ATTRIBUTE_TYPE_INVALID;
+                if (pxSession->key_alg_id == OPTIGA_RSA_KEY_2048_BIT_EXPONENTIAL
+                    || OPTIGA_RSA_KEY_1024_BIT_EXPONENTIAL) {
+                    xResult = check_and_copy_attribute(
+                        xObject,
+                        "CKA_PUBLIC_EXPONENT",
+                        pxTemplate,
+                        iAttrib,
+                        (void *)exp_bits,
+                        sizeof(exp_bits)
+                    );
+                } else {
+                    PKCS11_PRINT(
+                        "ERROR: C_GetAttributeValue: Invalid key type for CKA_PUBLIC_EXPONENT\r\n"
+                    );
+                    xResult = CKR_ATTRIBUTE_TYPE_INVALID;
                 }
                 break;
             /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -4745,13 +4762,16 @@ CK_DEFINE_FUNCTION(CK_RV, C_VerifyInit)
 
         /* Check that the mechanism and key type are compatible, supported. */
         if (pxSession->signature_size = check_signature_scheme_get_signature_size(
-                pxSession,
-                pxMechanism->mechanism,
-                0,
-                xPalHandle
-            )
-            == 0) {
-            PKCS11_PRINT("ERROR: C_VerifyInit: Invalid mechanism: 0x%X\r\n", pxMechanism->mechanism);    
+                                            pxSession,
+                                            pxMechanism->mechanism,
+                                            0,
+                                            xPalHandle
+                                        )
+                                        == 0) {
+            PKCS11_PRINT(
+                "ERROR: C_VerifyInit: Invalid mechanism: 0x%X\r\n",
+                pxMechanism->mechanism
+            );
             return CKR_MECHANISM_INVALID;
         } else {
             pxSession->verify_mechanism = pxMechanism->mechanism;
@@ -4893,11 +4913,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_Verify)
                 BUSY_WAIT_TIME_OUT,
                 "optiga_crypt_ecdsa_verify"
             );
-        }
-        else if (CKR_OK == set_valid_rsa_signature_scheme(pxSession->verify_mechanism, &rsa_signature_scheme)) {
+        } else if (CKR_OK == set_valid_rsa_signature_scheme(pxSession->verify_mechanism, &rsa_signature_scheme)) {
             xPublicKeyDetails.public_key = temp;
             xPublicKeyDetails.length = tempLen;
-            xPublicKeyDetails.key_type = pxSession->key_alg_id;       
+            xPublicKeyDetails.key_type = pxSession->key_alg_id;
             optiga_lib_return = optiga_crypt_rsa_verify(
                 pkcs11_context.object_list.optiga_crypt_instance,
                 rsa_signature_scheme,
@@ -4915,8 +4934,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Verify)
                 BUSY_WAIT_TIME_OUT,
                 "optiga_crypt_rsa_verify"
             );
-        }
-        else {
+        } else {
             xResult = CKR_ARGUMENTS_BAD;
             break;
         }

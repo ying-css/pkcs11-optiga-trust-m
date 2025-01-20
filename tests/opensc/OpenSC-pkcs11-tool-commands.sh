@@ -40,38 +40,6 @@ echo "======>List available slots"
 echo "======>List slots with tokens"	
 ./pd --list-token-slots
 
-echo "======>List supported mechanisms"
-./pd --list-mechanisms
-./pd --list-mechanisms --slot 1
-./pd --list-mechanisms --slot 2
-./pd --list-mechanisms --slot 3
-#./pd --list-mechanisms --slot 4 - !!!JC - RSA not finished
-#./pd --list-mechanisms --slot 5 - !!!JC - RSA not finished
-
-echo "======>Show objects"
-./pd --list-objects --slot 0
-./pd --list-objects --slot 1
-./pd --list-objects --slot 2
-./pd --list-objects --slot 3
-# ./pd --list-objects --slot 4 - !!!JC - RSA not finished
-# ./pd --list-objects --slot 5 - !!!JC - RSA not finished
-
-echo "======>list only certificates"	
-./pd --slot 0 --list-objects --type cert
-./pd --slot 1 --list-objects --type cert
-./pd --slot 2 --list-objects --type cert
-./pd --slot 3 --list-objects --type cert
-
-./pd --slot 0 --list-objects --type privkey
-./pd --slot 1 --list-objects --type privkey
-./pd --slot 2 --list-objects --type privkey
-./pd --slot 3 --list-objects --type privkey
-
-./pd --slot 0 --list-objects --type pubkey
-./pd --slot 1 --list-objects --type pubkey
-./pd --slot 2 --list-objects --type pubkey
-./pd --slot 3 --list-objects --type pubkey
-
 echo "======>Generate random on chip"	
 ./pd --generate-random 8 --output-file rand8.bin
 xxd rand8.bin
@@ -82,8 +50,8 @@ xxd rand16.bin
 ./pd --generate-random 32 --output-file rand32.bin
 xxd rand32.bin
 
-echo "======>Read IFX PubKey"
-./pd --slot 0 --label PubKey --read-object --type data --output-file Slot0PubKey.der
+#echo "======>Read IFX PubKey"
+#./pd --slot 0 --label PubKey --read-object --type data --output-file Slot0PubKey.der
 
 echo "-----> Generate Dummy ECC Private Key"
 openssl ecparam -out Slot1dummy_privkey.pem -name prime256v1 -genkey
@@ -152,7 +120,7 @@ openssl x509 -outform der -in Slot3Cert.pem -out Slot3Cert.der
 #./pd --slot 3 --id E0E3 --read-object --type cert --output-file Slot3CertE0E3.der
 #./pd --slot-index 0 --id E0E0 --read-object --type cert --output-file Slot0CertE0E0.der
 
-echo "======>Write certificates"	
+echo "======>Write certificates for ECC"	
 echo "---> Write/verify cert"	
 ./pd --slot 1 --label Cert --write-object Slot1Cert.der --type cert
 ./pd --slot 1 --label Cert --read-object --type cert --output-file Slot1CertRead.der
@@ -200,6 +168,58 @@ echo "======>Verify ECDSA signature (by slot)"
 ./pd --slot 1 --verify --mechanism ECDSA --input-file data.sha --signature-file Slot1prvkey.sig
 ./pd --slot 2 --verify --mechanism ECDSA --input-file data.sha --signature-file Slot2prvkey.sig
 ./pd --slot 3 --verify --mechanism ECDSA --input-file data.sha --signature-file Slot3prvkey.sig
+
+echo "======>List supported mechanisms for ECC"
+./pd --list-mechanisms
+./pd --list-mechanisms --slot 1
+./pd --list-mechanisms --slot 2
+./pd --list-mechanisms --slot 3
+
+echo "======>Show objects for ECC"
+./pd --list-objects --slot 0
+./pd --list-objects --slot 1
+./pd --list-objects --slot 2
+./pd --list-objects --slot 3
+
+echo "======>list only certificates"	
+./pd --slot 0 --list-objects --type cert
+./pd --slot 1 --list-objects --type cert
+./pd --slot 2 --list-objects --type cert
+./pd --slot 3 --list-objects --type cert
+
+./pd --slot 0 --list-objects --type privkey
+./pd --slot 1 --list-objects --type privkey
+./pd --slot 2 --list-objects --type privkey
+./pd --slot 3 --list-objects --type privkey
+
+./pd --slot 0 --list-objects --type pubkey
+./pd --slot 1 --list-objects --type pubkey
+./pd --slot 2 --list-objects --type pubkey
+./pd --slot 3 --list-objects --type pubkey
+
+echo "======>Generate RSA key pair"	
+./pd --slot 4 --keypairgen --key-type RSA:2048
+./pd --slot 4 --label PubKey --read-object --type data --output-file Slot4PubKey.der
+xxd Slot4PubKey.der
+./pd --slot 5 --keypairgen --key-type RSA:1024
+./pd --slot 5 --label PubKey --read-object --type data --output-file Slot5PubKey.der
+xxd Slot5PubKey.der
+ 
+echo "======>RSA sign"	
+./pd --slot 4 --sign --mechanism RSA-PKCS --input-file data.sha --output-file Slot4prvkey.sig
+./pd --slot 5 --sign --mechanism RSA-PKCS --input-file data.sha --output-file Slot5prvkey.sig
+
+echo "======>Verifgy RSA signature (by ID)"
+./pd --slot 4 --verify --mechanism RSA-PKCS --input-file data.sha --signature-file Slot4prvkey.sig
+./pd --slot 5 --verify --mechanism RSA-PKCS --input-file data.sha --signature-file Slot5prvkey.sig
+
+echo "======>List supported mechanisms for RSA"
+./pd --list-mechanisms --slot 4 
+./pd --list-mechanisms --slot 5 
+
+echo "======>Show objects for RSA"
+./pd --list-objects --slot 4 
+./pd --list-objects --slot 5 
 
 if [ $ErrorCount -ne 0 ]; then 
  echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
