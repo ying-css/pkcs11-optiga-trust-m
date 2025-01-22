@@ -1169,18 +1169,84 @@ uint8_t *Find_TLV_Tag(uint8_t *parray, uint8_t tag, int *plen) {
     return NULL;
 }
 /*-------------------------------------------------------------------------------
-    Search DER TLV data array, find tag 03, remove preceeding data
+    Search DER TLV data array, find BIT String tag and return the position 
+    of the tag and the total length
+    Input: 
+        der     		input data in the der format
+    Output: 
+        pubkey_length   length of the pubkey including the bit string header
+    Returns position of the BIT String tag 0x03 in the array
  -------------------------------------------------------------------------------*/
-int find_public_key_in_der(uint8_t *der) {
-    if (der[0] == 0x30)  // DER header tag present in the object data
-    {
-        int iPubKeyLen;
-        uint8_t *pPubKey = Find_TLV_Tag(der, 0x03, &iPubKeyLen);  // Get pointer to Tag 0x03 value
-        if (pPubKey != NULL && iPubKeyLen != 0)
-            memmove(der, pPubKey, iPubKeyLen);  // Remove header from the DER public key encoding
-        return iPubKeyLen;
-    }
-    return 0;
+int find_public_key_in_der(uint8_t *der, int *pubkey_length) {
+	int i = 0, bit_string_pos;
+    //Verify that the DER starts with a SEQUENCE (0x30)
+    if (der[i++] == 0x30) {
+		//Decode the SEQUENCE length
+		int total_length = 0;
+		if (der[i] & 0x80) {  // Multi-byte length
+			int length_bytes = der[i++] & 0x7F;
+			if (length_bytes > sizeof(int)) {
+				PKCS11_PRINT("Error: Length field too large.\n");
+				return 0;
+			}
+			for (int j = 0; j < length_bytes; j++) {
+				total_length = (total_length << 8) | der[i++];
+			}
+		} else {  // Single-byte length
+			total_length = der[i++];
+		}
+
+		//Verify the algorithm identifier SEQUENCE (0x30)
+		if (der[i++] != 0x30) {
+			PKCS11_PRINT("Error: Missing algorithm identifier sequence.\n");
+			return 0;
+		}
+
+		//Decode the algorithm identifier length
+		int alg_length = 0;
+		if (der[i] & 0x80) {  // Multi-byte length
+			int length_bytes = der[i++] & 0x7F;
+			if (length_bytes > sizeof(int)) {
+				PKCS11_PRINT("Error: Algorithm identifier length too large.\n");
+				return 0;
+			}
+			for (int j = 0; j < length_bytes; j++) {
+				alg_length = (alg_length << 8) | der[i++];
+			}
+		} else {  // Single-byte length
+			alg_length = der[i++];
+		}
+
+		//Skip the content of the algorithm identifier
+		i += alg_length;
+
+		//Check for the BIT STRING (0x03)
+		if (der[i++] != 0x03) {
+			PKCS11_PRINT("Error: Missing BIT STRING.\n");
+			return 0;
+		}
+		bit_string_pos = i-1;
+		//Decode the BIT STRING length
+		int bit_string_length = 0;
+		if (der[i] & 0x80) {  // Multi-byte length
+			int length_bytes = der[i++] & 0x7F;
+			if (length_bytes > sizeof(int)) {
+				PKCS11_PRINT("Error: BIT STRING length too large.\n");
+				return 0;
+			}
+			for (int j = 0; j < length_bytes; j++) {
+				bit_string_length = (bit_string_length << 8) | der[i++];
+			}
+			*pubkey_length = bit_string_length + 2 + length_bytes ;
+		} else {  // Single-byte length
+			bit_string_length = der[i++];
+			*pubkey_length = bit_string_length + 2 ;
+		}
+				
+		return bit_string_pos;
+	}
+	
+	return 0;  
 }
 
 /*-------------------------------------------------------------------------------
@@ -4886,16 +4952,19 @@ CK_DEFINE_FUNCTION(CK_RV, C_Verify)
             PKCS11_PRINT("ERROR: C_Verify: Failed to extract Public Key from Optiga\r\n");
             return CKR_DEVICE_ERROR;
         }
-        tempLen = find_public_key_in_der(temp);
-        HEXDUMP("Pub.Key: ", temp, tempLen);
+        int bit_string_pos, pubkey_length;
+        bit_string_pos = find_public_key_in_der(temp, &pubkey_length);
+        uint8_t pubkey[pubkey_length];
+        memmove(pubkey, temp+bit_string_pos, pubkey_length);
+        HEXDUMP("Pub.Key: ", pubkey, pubkey_length);
 
         /*- - - - - - - - Perform an ECDSA verification. - - - - - - - - */
         trustm_TimerStart();
         trustm_crypt_ShieldedConnection(OPTIGA_COMMS_FULL_PROTECTION);
 
         if (pxSession->verify_mechanism == CKM_ECDSA) {
-            xPublicKeyDetails.public_key = temp;
-            xPublicKeyDetails.length = tempLen;
+            xPublicKeyDetails.public_key = pubkey;
+            xPublicKeyDetails.length = pubkey_length;
             xPublicKeyDetails.key_type = pxSession->key_alg_id;
 
             optiga_lib_return = optiga_crypt_ecdsa_verify(
@@ -4914,8 +4983,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Verify)
                 "optiga_crypt_ecdsa_verify"
             );
         } else if (CKR_OK == set_valid_rsa_signature_scheme(pxSession->verify_mechanism, &rsa_signature_scheme)) {
-            xPublicKeyDetails.public_key = temp;
-            xPublicKeyDetails.length = tempLen;
+            xPublicKeyDetails.public_key = pubkey;
+            xPublicKeyDetails.length = pubkey_length;
             xPublicKeyDetails.key_type = pxSession->key_alg_id;
             optiga_lib_return = optiga_crypt_rsa_verify(
                 pkcs11_context.object_list.optiga_crypt_instance,

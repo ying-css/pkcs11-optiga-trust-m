@@ -209,7 +209,7 @@ echo "======>RSA sign"
 ./pd --slot 4 --sign --mechanism RSA-PKCS --input-file data.sha --output-file Slot4prvkey.sig
 ./pd --slot 5 --sign --mechanism RSA-PKCS --input-file data.sha --output-file Slot5prvkey.sig
 
-echo "======>Verifgy RSA signature (by ID)"
+echo "======>Verify RSA signature (by ID)"
 ./pd --slot 4 --verify --mechanism RSA-PKCS --input-file data.sha --signature-file Slot4prvkey.sig
 ./pd --slot 5 --verify --mechanism RSA-PKCS --input-file data.sha --signature-file Slot5prvkey.sig
 
