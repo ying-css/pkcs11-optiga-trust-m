@@ -1,3 +1,7 @@
+## 2.25.0 (2025-01-23)
+* Added RSA support for PKCS11 tools and OpenSSL Engine interface
+* Added ECC256 support for PKCS11 through OpenSSL Engine interface
+
 ## 2.24.0 (2024-08-21)
 * Fixed the GPIO issue for the latest RPI OS Kernel 6.6 by using libgpiod
 * Fixed segmentation fault for sign and verify functions under error conditions

@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # SPDX-FileCopyrightText: 2024 Infineon Technologies AG
-# SPDX-FileCopyrightText: SPDX-FileCopyrightText: 2024 Infineon Technologies AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -12,7 +11,7 @@ set -e
 
 
 clear
-echo "Paralell process test examples:"
+echo "Parallel process test examples:"
 echo "=================================================="
 echo "======>Show PKCS#11 module/library info"	
 ./pd --show-info

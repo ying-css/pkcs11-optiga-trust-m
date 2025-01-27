@@ -7,4 +7,4 @@
 sudo apt-get update
 sudo apt-get install -y cmake libssl-dev libusb-1.0-0-dev xxd
 sudo apt-get install -y libcunit1-dev libpthread-stubs0-dev libgpiod-dev
-sudo apt-get install -y opensc
+sudo apt-get install -y opensc libengine-pkcs11-openssl

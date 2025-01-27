@@ -86,6 +86,9 @@
 #define pkcs11DER_ENCODED_OID_BP512 \
     { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0d }
 
+#define pkcs11DER_ENCODED_OID_rsa2048 \
+    { 0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01, 0x05, 0x00 }
+
 /**
  * @brief Maximum number of token objects that can be stored
  * by the PKCS #11 module.
@@ -222,6 +225,13 @@
  * @brief Length of PKCS #11 signature for RSA 1024 key, in bytes.
  */
 #define pkcs11RSA_2048_SIGNATURE_LENGTH (pkcs11RSA_2048_MODULUS_BITS / 8)
+
+/**
+ *  @brief Length of PKCS11 RSA Hashing algorightm header based on PSS Padding scheme
+ */
+#define SHA256_RSA_PKCS_PSS_HEADER_LENGTH 19
+#define SHA384_RSA_PKCS_PSS_HEADER_LENGTH 19
+#define SHA512_RSA_PKCS_PSS_HEADER_LENGTH 19
 
 #include "pkcs11.h"
 

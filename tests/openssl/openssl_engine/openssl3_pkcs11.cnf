@@ -1,0 +1,33 @@
+openssl_conf = openssl_init
+
+[openssl_init]
+engines = engine_section
+
+[engine_section]
+pkcs11 = pkcs11_section
+
+[pkcs11_section]
+engine_id = pkcs11
+dynamic_path = /usr/lib/aarch64-linux-gnu/engines-3/libpkcs11.so
+MODULE_PATH = /lib/liboptigatrust-i2c-linux-pkcs11.so
+init = 0
+
+[req]
+#default_bits = 2048                   # Default key size (ignored for PKCS#11)
+#default_md = sha256                   # Default message digest for CSR
+distinguished_name = req_distinguished_name
+#prompt = no                           # Auto-fill the DN fields without prompting
+#req_extensions = v3_req               # Extensions to add to the CSR
+
+[req_distinguished_name]
+#C = US                                # Country
+#ST = California                       # State or Province
+#L = San Francisco                     # Locality
+#O = My Organization                   # Organization Name
+#OU = My Organizational Unit           # Organizational Unit
+CN = www.example.com                  # Common Name
+
+#[v3_req]
+#basicConstraints = CA:FALSE           # Basic constraints
+#keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+#extendedKeyUsage = serverAuth, clientAuth
