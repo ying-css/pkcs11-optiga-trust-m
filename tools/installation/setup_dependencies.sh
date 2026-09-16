@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: 2024 Infineon Technologies AG
+# SPDX-FileCopyrightText: 2026 Infineon Technologies AG
 #
 # SPDX-License-Identifier: MIT
 

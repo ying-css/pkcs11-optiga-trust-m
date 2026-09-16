@@ -16,6 +16,8 @@ SPDX-License-Identifier: MIT
   - [Build PKCS#11 library with OPTIGA™ Trust M](#build-pkcs11-library-with-optiga-trust-m)
   - [OpenSC Examples](#opensc-examples)
   - [OpenSSL Examples](#openssl-examples)
+    - [OPENSSL Engine Examples](#openssl-engine-examples)
+    - [OPENSSL Provider Examples](#openssl-provider-examples)
   - [AWS IoT Client Example](#aws-iot-client-example)
   - [Licensing](#licensing)
 
@@ -161,7 +163,10 @@ dos2unix clean.sh
 
 ### OPENSSL Provider Examples
 
-Note: the PKCS11 provider in this repo only exists in Trixie(stable) package, for Bookworm(stable) you need to enable the [Bookworm-backports](https://wiki.debian.org/Backports) and download the backported package or build from [source](https://github.com/openssl-projects/pkcs11-provider) and update module in openssl_pkcs11.cnf properly
+Note: the PKCS11 provider package only available in the main repositories starting with Debian Trixie. On Bookworm(stable) you must either:
+ Enable the [Bookworm-backports](https://wiki.debian.org/Backports) and download the backported package,or 
+ build it from [source](https://github.com/openssl-projects/pkcs11-provider) 
+ and update module in openssl_pkcs11.cnf accordingly
 
 1. Go to  [OpenSSL Provider folder](./tests/openssl/openssl_engine)  to run examples in script openssl_pkcs11_prov_ecc.sh for ECC algorithm and openssl_pkcs11_prov_rsa.sh for RSA algorithm.
 

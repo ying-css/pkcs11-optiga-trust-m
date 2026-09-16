@@ -1,5 +1,5 @@
 // Copyright (c) 2020 Infineon Technologies AG
-// SPDX-FileCopyrightText: 2024 Infineon Technologies AG
+// SPDX-FileCopyrightText: 2026 Infineon Technologies AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -543,7 +543,7 @@ pal_os_lock_t optiga_mutex;
         PKCS11_PRINT("ERROR: CKR_CRYPTOKI_NOT_INITIALIZED\r\n"); \
         return CKR_CRYPTOKI_NOT_INITIALIZED; \
     } \
-     PKCS11_DEBUG("TRACE[%d]: Enter %s\r\n",getpid(),__func__);
+    PKCS11_DEBUG("TRACE[%d]: Enter %s\r\n", getpid(), __func__);
 
 /**************
     Macro executed at the beginning of each PKCS#11 function using a session.
@@ -564,7 +564,7 @@ pal_os_lock_t optiga_mutex;
         PKCS11_PRINT("ERROR: %s: Invalid session handle\r\n", __func__); \
         return CKR_SESSION_HANDLE_INVALID; \
     } \
-    PKCS11_DEBUG("TRACE: Enter %s. Session: 0x%X\r\n",__func__, pxSession);
+    PKCS11_DEBUG("TRACE: Enter %s. Session: 0x%X\r\n", __func__, pxSession);
 
 /**************
     Macro dumping PKCS#11 function TEMPLATE parameters to the log file.
@@ -1109,7 +1109,11 @@ long get_object_value(CK_OBJECT_HANDLE object_handle, uint8_t **ppucData, uint16
         OPTIGA_COMMS_FULL_PROTECTION
     );
     if (OPTIGA_LIB_SUCCESS != optiga_lib_return) {
-        PKCS11_PRINT("ERROR: optiga_trustm_read_data (OID: 0x%04X) failed. Optiga Error %04X\r\n", lOptigaOid, optiga_lib_return);
+        PKCS11_PRINT(
+            "ERROR: optiga_trustm_read_data (OID: 0x%04X) failed. Optiga Error %04X\r\n",
+            lOptigaOid,
+            optiga_lib_return
+        );
         get_object_value_cleanup(*ppucData);
         *ppucData = NULL;
         return CKR_DEVICE_ERROR;
@@ -1168,7 +1172,6 @@ uint8_t *Find_TLV_Tag(uint8_t *parray, uint8_t tag, int *plen) {
             }
             return parray + ind;  // Return pointer to the Tag
         }
-        /* Not a match: skip this sibling TLV's own length+value instead of scanning its value bytes for a false match */
         sub_ind = ind;
         sub_len = GetBERlen(parray, &sub_ind);
         ind = sub_ind + sub_len;
@@ -1658,10 +1661,8 @@ CK_RV optiga_trustm_initialize(void) {
     pal_status_t pal_status;
     uint16_t dOptigaOID;
     static uint8_t host_pair_done = 1;
-    
     PKCS11_DEBUG("TRACE: Enter optiga_trustm_initialize\r\n");
     //pal_os_lock_acquire(&optiga_mutex);
-   
     do {
         if ((pal_status = pal_gpio_init(&optiga_reset_0)) != PAL_STATUS_SUCCESS) {
             PKCS11_PRINT(
@@ -3035,7 +3036,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pvInitArgs) {
 
     CK_RV xResult = CKR_OK;
     LOGOPEN
-    PKCS11_DEBUG("TRACE[%d]: Enter %s\r\n",getpid(),__func__);
+    PKCS11_DEBUG("TRACE[%d]: Enter %s\r\n", getpid(), __func__);
     PKCS11_DEBUG(
         "%s %s PKCS#11 library ver.%d.%d\r\n",
         LIBRARY_MANUFACTURER,
@@ -3046,7 +3047,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pvInitArgs) {
 
     /* Ensure that the FreeRTOS heap is used. */
     //        CRYPTO_ConfigureHeap();
-    
+
     if (pkcs11_context.is_initialized != CK_TRUE) {
         Semaphore_Initialize();
         memset(
@@ -3054,7 +3055,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pvInitArgs) {
             0,
             sizeof(pkcs11_context)
         );  // Clean up all context including .is_initialized flag
-        
         /*
          *   Reset OPTIGA(TM) Trust M and open an application on it
          */
@@ -3078,7 +3078,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pvInitArgs) {
  **************************************************************************/
 CK_DEFINE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pvReserved) {
     PKCS11_MODULE_INITIALIZED
-    PKCS11_DEBUG("TRACE[%d]: Enter %s\r\n",getpid(),__func__);
+
+    PKCS11_DEBUG("TRACE[%d]: Enter %s\r\n", getpid(), __func__);
     if (NULL != pvReserved) {
         xResult = CKR_ARGUMENTS_BAD;
     } else {
@@ -3137,7 +3138,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetFunctionList)(CK_FUNCTION_LIST_PTR_PTR ppxFunctio
     CK_RV xResult = CKR_OK;
 
     LOGOPEN
-    PKCS11_DEBUG("TRACE[%d]: Enter %s\r\n",getpid(),__func__);
+
+    PKCS11_DEBUG("TRACE[%d]: Enter %s\r\n", getpid(), __func__);
     if (NULL == ppxFunctionList) {
         xResult = CKR_ARGUMENTS_BAD;
     } else {
@@ -3396,7 +3398,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_OpenSession)
  CK_NOTIFY xNotify,
  CK_SESSION_HANDLE_PTR pxSession) {
     PKCS11_MODULE_INITIALIZED
-    
 
     p_pkcs11_session_t pxSessionObj = NULL;
 
@@ -3448,7 +3449,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_OpenSession)
     if ((NULL != pxSessionObj) && (CKR_OK != xResult)) {
         free(pxSessionObj);
     }
-    PKCS11_DEBUG("TRACE[%d]: Enter %s. Session: 0x%X\r\n", getpid(),__func__, *pxSession);
+    PKCS11_DEBUG("TRACE[%d]: Enter %s. Session: 0x%X\r\n", getpid(), __func__, *pxSession);
     return xResult;
 }
 CK_DEFINE_FUNCTION(CK_RV, C_GetSessionInfo)
@@ -3492,10 +3493,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CloseSession)(CK_SESSION_HANDLE xSession) {
  * @brief Return operation state.
  **************************************************************************/
 CK_DEFINE_FUNCTION(CK_RV, C_GetOperationState)
-(CK_SESSION_HANDLE xSession, 
- CK_BYTE_PTR pOperationState, 
- CK_ULONG_PTR pulOperationStateLen) {
-    
+(CK_SESSION_HANDLE xSession, CK_BYTE_PTR pOperationState, CK_ULONG_PTR pulOperationStateLen) {
     PKCS11_MODULE_INITIALIZED_AND_SESSION_VALID(xSession);
     return CKR_FUNCTION_NOT_SUPPORTED;
 /*     if (pulOperationStateLen == NULL)
@@ -3531,8 +3529,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetOperationState)
  * @brief Terminate all sessions of a slot and release resources.
  **************************************************************************/
 CK_DEFINE_FUNCTION(CK_RV, C_CloseAllSessions)(CK_SLOT_ID slotID) {
-    PKCS11_MODULE_INITIALIZED
-    (void)slotID;
+    PKCS11_MODULE_INITIALIZED(void) slotID;
     free_session_pointer((CK_SESSION_HANDLE)NULL);
     return xResult;
 }
@@ -3674,7 +3671,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
 
     for (iAttrib = 0; iAttrib < ulCount /*!JC && CKR_OK == xResult */; iAttrib++) {
         pxTemplate[iAttrib].ulValueLen = CK_UNAVAILABLE_INFORMATION;
-        get_object_value_cleanup(pxObjectValue); // Free the object
+        get_object_value_cleanup(pxObjectValue);  // Free the object
         pxObjectValue = NULL;
         switch (pxTemplate[iAttrib].type) {
             /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -3797,7 +3794,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                     xFinalResult = xResult;
                     break;
                 }
-                // First extract the raw EC point from the SubjectPublicKeyInfo from OPTIGA oid  
+                // First extract the raw EC point from the SubjectPublicKeyInfo from OPTIGA oid
                 // Then wrap it around with the DER OCTET STRING as per PKCS#11 specs
                 if (pxObjectValue[0] == 0x30)  // DER header tag present in the object data
                 {
@@ -3834,7 +3831,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                     ulLength
                 );
                 break;
-            } 
+            }
             /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
             case CKA_CERTIFICATE_TYPE:
                 xType = CKC_VENDOR_DEFINED;
@@ -3973,7 +3970,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                     "CKA_CERTIFICATE_CATEGORY",
                     pxTemplate,
                     iAttrib,
-                    &xType, 
+                    &xType,
                     sizeof(CK_CERTIFICATE_TYPE)
                 );
                 break;
@@ -3988,17 +3985,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                 );
                 break;
             /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-            case CKA_ISSUER: // Default empty
+            case CKA_ISSUER:  // Default empty
                 pxTemplate[iAttrib].ulValueLen = 0;
                 xResult = CKR_OK;
                 break;
             /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-            case CKA_SERIAL_NUMBER: // Default empty
+            case CKA_SERIAL_NUMBER:  // Default empty
                 pxTemplate[iAttrib].ulValueLen = 0;
                 xResult = CKR_OK;
                 break;
             /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-            case CKA_PUBLIC_KEY_INFO: // Possible to have by reading the Optiga OID
+            case CKA_PUBLIC_KEY_INFO:  // Possible to have by reading the Optiga OID
                 xResult = check_and_copy_bool_attribute(
                     xObject,
                     "CKA_ISSUER",
@@ -4084,7 +4081,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
 
                 // Read from Optiga Object metadata to identify the algorithm and save it to the session
                 // If can not find, just exit
-                if (pxSession->key_alg_id == 0 && optiga_objects_list[xPalHandle].key_type == CKK_EC) {
+                if (pxSession->key_alg_id == 0
+                    && optiga_objects_list[xPalHandle].key_type == CKK_EC) {
                     CK_OBJECT_HANDLE xPalPrivate = xPalHandle;
                     uint8_t metadata[64];
                     uint8_t *pAlg = NULL;
@@ -4097,8 +4095,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
 
                     if (xPalPrivate < MAX_NUM_OBJECTS
                         && optiga_objects_list[xPalPrivate].object_class == CKO_PRIVATE_KEY) {
-                        if (optiga_objects_list[xPalPrivate].obj_size_key_alg != 0) { // The object has a algorithm identifier already
-                            pxSession->key_alg_id = optiga_objects_list[xPalPrivate].obj_size_key_alg;
+                        if (optiga_objects_list[xPalPrivate].obj_size_key_alg
+                            != 0) {  // The object has a algorithm identifier already
+                            pxSession->key_alg_id =
+                                optiga_objects_list[xPalPrivate].obj_size_key_alg;
                         } else {
                             optiga_lib_return = optiga_trustm_read_metadata(
                                 optiga_objects_list[xPalPrivate].physical_oid,
@@ -4126,7 +4126,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                                 break;
                             }
                             pxSession->key_alg_id = pAlg[2];
-                            optiga_objects_list[xPalPrivate].obj_size_key_alg = pxSession->key_alg_id;
+                            optiga_objects_list[xPalPrivate].obj_size_key_alg =
+                                pxSession->key_alg_id;
                         }
                     }
                 }
@@ -4173,7 +4174,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                         isExit = CK_TRUE;
                         break;
                 }
-                if(isExit) break;
+                if (isExit)
+                    break;
 
                 xResult = check_and_copy_attribute(
                     xObject,
@@ -4228,16 +4230,16 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                 int pubKeyLen;
                 int data_index = 0;
                 int modulus_length;
-                
+
                 // The RSA public key is stored as ASN.1 X509 format
-                // SubjectPublicKeyInfo -> Find BIT STRING 
+                // SubjectPublicKeyInfo -> Find BIT STRING
                 uint8_t *pPubKey = Find_TLV_Tag(pxObjectValue, 0x03, &pubKeyLen);
                 if (pPubKey == NULL) {
                     PKCS11_PRINT("ERROR: C_GetAttributeValue: CKA_MODULUS: BIT STRING missing\r\n");
                     xResult = CKR_DATA_INVALID;
                     break;
                 }
-                // Skip the BIT STRING header and its unused-bits octet to reach RSAPublicKey SEQUENCE 
+                // Skip the BIT STRING header and its unused-bits octet to reach RSAPublicKey SEQUENCE
                 GetBERlen(pPubKey, &data_index);
                 uint8_t *pRsaPubKey = pPubKey + data_index + 1;
 
@@ -4252,7 +4254,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                     break;
                 }
 
-                // Extract the Modulus 
+                // Extract the Modulus
                 data_index = 0;
                 modulus_length = GetBERlen(pModulus, &data_index);
                 pModulus += data_index;
@@ -4333,7 +4335,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                     "WARNING: C_GetAttributeValue: Unknown attribute 0x%X ignored, returned FALSE\r\n",
                     (int)(pxTemplate[iAttrib].type)
                 );
-                pxTemplate[iAttrib].ulValueLen = CK_UNAVAILABLE_INFORMATION;  // Ignore unknown attributes, return FALSE
+                pxTemplate[iAttrib].ulValueLen =
+                    CK_UNAVAILABLE_INFORMATION;  // Ignore unknown attributes, return FALSE
         }
     }
     //  PKCS11_PRINT_TEMPLATE(pxTemplate, ulCount)
@@ -4543,8 +4546,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjects)
     }
     /*- - - - - - - - - no label or ID provided, find all objects in this slot - - - - - - - - - */
     else {
-        for (; (pxSession->find_object_counter < PKCS11_SLOT_MAX_OBJECTS) && ((*pulObjectCount) < ulMaxObjectCount);
-                         pxSession->find_object_counter++) {
+        for (; (pxSession->find_object_counter < PKCS11_SLOT_MAX_OBJECTS)
+               && ((*pulObjectCount) < ulMaxObjectCount);
+             pxSession->find_object_counter++) {
             xPalHandle = supported_slots_mechanisms_list[pxSession->slot_id]
                              .logical_object_handle[pxSession->find_object_counter];
             if (xPalHandle == 0)

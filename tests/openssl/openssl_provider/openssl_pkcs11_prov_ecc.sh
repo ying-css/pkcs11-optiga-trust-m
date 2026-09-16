@@ -21,15 +21,6 @@ OPENSSL_VERSION=$(openssl version | awk '{print $2}')
 echo "Detected OpenSSL Version: $OPENSSL_VERSION"
 echo
 
-#~ echo "======>List slots with tokens"	
-#~ ./pd --list-token-slots
-
-#~ echo "======>List supported mechanisms"
-#~ ./pd --list-mechanisms --slot 1
-
-#~ echo "======>Show objects"
-#~ ./pd --list-objects --slot 1
-
 echo =================================================================================== 
 echo "Setting up the slot "
 echo =================================================================================== 

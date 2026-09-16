@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Infineon Technologies AG
+# SPDX-License-Identifier: MIT
+
 openssl_conf = openssl_init
 
 [openssl_init]
