@@ -6,19 +6,26 @@ cmake_minimum_required(VERSION 3.5)
 include(GNUInstallDirs)
 project(optigatrust)
 
-set(TRUSTM_PATH external/optiga-trust-m )
+set(TRUSTM_PATH ${CMAKE_CURRENT_SOURCE_DIR}/external/optiga-trust-m )
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/examples/utilities/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/examples/optiga/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/config)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/${TRUSTM_PATH}/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/${TRUSTM_PATH}/include/cmd)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/${TRUSTM_PATH}/include/common)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/${TRUSTM_PATH}/include/comms)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/${TRUSTM_PATH}/include/ifx_i2c)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/${TRUSTM_PATH}/include/pal)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/${TRUSTM_PATH}/external/mbedtls/include)
-aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/${TRUSTM_PATH}/external/mbedtls/library MBEDTLS_FILES)
+include_directories(${TRUSTM_PATH}/include)
+include_directories(${TRUSTM_PATH}/include/cmd)
+include_directories(${TRUSTM_PATH}/include/common)
+include_directories(${TRUSTM_PATH}/include/comms)
+include_directories(${TRUSTM_PATH}/include/ifx_i2c)
+include_directories(${TRUSTM_PATH}/include/pal)
+
+# ---- mbedTLS / TF-PSA-Crypto integration ----
+set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+set(ENABLE_PROGRAMS OFF CACHE BOOL "" FORCE)
+set(USE_STATIC_MBEDTLS_LIBRARY ON CACHE BOOL "" FORCE) 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(GEN_FILES ON CACHE BOOL "Generate the auto-generated mbedTLS files" FORCE)
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/optiga-trust-m/external/mbedtls-4.x)
 
 include_directories(/usr/local/openssl/include)
 # Add sources for Trust M Core and Platform Abstraction Layer
@@ -35,13 +42,10 @@ set(TRUSTM_CORE_SRCS
     ${TRUSTM_PATH}/src/comms/ifx_i2c/ifx_i2c_presentation_layer.c
     ${TRUSTM_PATH}/src/comms/ifx_i2c/ifx_i2c_transport_layer.c
     ${TRUSTM_PATH}/src/comms/optiga_comms_ifx_i2c.c
-    ${TRUSTM_PATH}/external/mbedtls/library/sha256.c
-    ${TRUSTM_PATH}/external/mbedtls/library/platform_util.c
     ${CMAKE_CURRENT_SOURCE_DIR}/examples/utilities/log.c    
     ${CMAKE_CURRENT_SOURCE_DIR}/examples/utilities/pkcs11_trustm.c
     ${CMAKE_CURRENT_SOURCE_DIR}/examples/utilities/ecdsa_utils.c
     ${CMAKE_CURRENT_SOURCE_DIR}/examples/utilities/optiga_lib_logger.c
-    ${MBEDTLS_FILES}
 )
 
 #~ include(${CMAKE_CURRENT_SOURCE_DIR}/linux_libusb.cmake)

@@ -17,7 +17,7 @@ if(UNIX)
 		${TRUSTM_PATH}/extras/pal/linux/pal_os_timer.c
         ${TRUSTM_PATH}/extras/pal/linux/pal_os_memory.c
         ${TRUSTM_PATH}/extras/pal/linux/pal_shared_mutex.c  
-        ${TRUSTM_PATH}/extras/pal/pal_crypt_mbedtls.c
+        ${TRUSTM_PATH}/extras/pal/pal_crypt_psa.c
 	)
 	set(TRUSTM_I2C_INC ${TRUSTM_PATH}/extras/pal/linux/include)
 	add_library(${TARGET_I2C_SHLIB} SHARED ${TRUSTM_CORE_SRCS} ${TRUSTM_I2C_SRCS})
@@ -37,7 +37,7 @@ if(UNIX)
 	if(GPIOD_VERSION STREQUAL "1")
 		target_compile_definitions(${TARGET_I2C_SHLIB} PRIVATE -DLIBGPIOD_V1)
 	endif()
-	target_link_libraries(${TARGET_I2C_SHLIB} rt crypto pthread gpiod)
+	target_link_libraries(${TARGET_I2C_SHLIB} rt crypto pthread gpiod tfpsacrypto)
 	set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined")
 	set_target_properties( ${TARGET_I2C_SHLIB}
 		PROPERTIES
