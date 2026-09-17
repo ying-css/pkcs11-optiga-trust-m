@@ -29,7 +29,7 @@
 #include "pkcs11_optiga_trustm.h"
 
 #ifndef USE_OPTIGA_SHA
-#include "mbedtls/sha256.h"
+#include "psa/crypto.h"
 #endif
 
 #ifdef __linux__
@@ -514,7 +514,7 @@ typedef struct pkcs11_session {
 #ifdef USE_OPTIGA_SHA
     optiga_sha256_ctx_t sha256_ctx;
 #else
-    mbedtls_sha256_context sha256_ctx;
+    psa_hash_operation_t sha_ctx;
 #endif
     CK_ULONG rsa_key_size;
     CK_ULONG ec_key_size;
@@ -5610,7 +5610,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptFinal)
  **************************************************************************/
 CK_DEFINE_FUNCTION(CK_RV, C_DigestInit)(CK_SESSION_HANDLE xSession, CK_MECHANISM_PTR pMechanism) {
     PKCS11_MODULE_INITIALIZED_AND_SESSION_VALID(xSession);
-    int lib_return = OPTIGA_UTIL_ERROR;
+    psa_status_t return_value;
     PKCS11_PRINT_MECHANISM(pMechanism)
 
     if (pMechanism->mechanism != CKM_SHA256) {
@@ -5646,11 +5646,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_DigestInit)(CK_SESSION_HANDLE xSession, CK_MECHANISM
         return CKR_FUNCTION_FAILED;
     }
 #else
-    mbedtls_sha256_init(&pxSession->sha256_ctx);
-    if ((lib_return = mbedtls_sha256_starts_ret(&pxSession->sha256_ctx, 0)) != 0) {
+    pxSession->sha_ctx = psa_hash_operation_init();
+    return_value = psa_hash_setup(&pxSession->sha_ctx, PSA_ALG_SHA_256);
+    if (return_value != PSA_SUCCESS) {
         PKCS11_PRINT(
-            "ERROR: C_DigestInit: Failed in mbedtls_sha256_starts_ret. Error: 0x%X\r\n",
-            lib_return
+            "ERROR: C_DigestInit: Failed in psa_hash_setup. Error: 0x%X\r\n",
+            return_value
         );
         return CKR_FUNCTION_FAILED;
     }
@@ -5665,7 +5666,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DigestInit)(CK_SESSION_HANDLE xSession, CK_MECHANISM
 CK_DEFINE_FUNCTION(CK_RV, C_DigestUpdate)
 (CK_SESSION_HANDLE xSession, CK_BYTE_PTR pPart, CK_ULONG ulPartLen) {
     PKCS11_MODULE_INITIALIZED_AND_SESSION_VALID(xSession);
-    int lib_return = OPTIGA_UTIL_ERROR;
+    psa_status_t return_value;
 
     if (pxSession->operation_in_progress != CKM_SHA256) {
         PKCS11_PRINT("ERROR: C_DigestUpdate: Digest operation not initialized\r\n");
@@ -5702,11 +5703,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_DigestUpdate)
         return CKR_FUNCTION_FAILED;
     }
 #else
-    if ((lib_return = mbedtls_sha256_update_ret(&pxSession->sha256_ctx, pPart, ulPartLen)) != 0) {
+    return_value = psa_hash_update(&pxSession->sha_ctx, pPart, ulPartLen);
+    if (return_value != PSA_SUCCESS) {
         PKCS11_PRINT(
-            "ERROR: C_DigestUpdate: Failed in mbedtls_sha256_update_ret. Error: 0x%X\r\n",
-            lib_return
+            "ERROR: C_DigestUpdate: Failed in psa_hash_update. Error: 0x%X\r\n",
+            return_value
         );
+        psa_hash_abort(&pxSession->sha_ctx);
         return CKR_FUNCTION_FAILED;
     }
 #endif
@@ -5718,8 +5721,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_DigestUpdate)
 CK_DEFINE_FUNCTION(CK_RV, C_DigestFinal)
 (CK_SESSION_HANDLE xSession, CK_BYTE_PTR pDigest, CK_ULONG_PTR pulDigestLen) {
     PKCS11_MODULE_INITIALIZED_AND_SESSION_VALID(xSession);
-    int lib_return = OPTIGA_UTIL_ERROR;
-
+    psa_status_t return_value; 
+    size_t hash_length;
     if (pxSession->operation_in_progress != CKM_SHA256) {
         pxSession->operation_in_progress = pkcs11NO_OPERATION;
         PKCS11_PRINT("ERROR: C_DigestFinal: Digest operation not initialized\r\n");
@@ -5763,16 +5766,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_DigestFinal)
         return CKR_FUNCTION_FAILED;
     }
 #else
-    if ((lib_return = mbedtls_sha256_finish_ret(&pxSession->sha256_ctx, pDigest)) != 0) {
+    return_value = psa_hash_finish(&pxSession->sha_ctx, pDigest, *pulDigestLen, &hash_length);
+    if (return_value != PSA_SUCCESS || hash_length != pkcs11SHA256_DIGEST_LENGTH) {
         PKCS11_PRINT(
-            "ERROR: C_DigestFinal: Failed in mbedtls_sha256_finish_ret. Error: 0x%X\r\n",
-            lib_return
+            "ERROR: C_DigestFinal: Failed in psa_hash_finish. Error: 0x%X\r\n",
+            return_value
         );
-        mbedtls_sha256_free(&pxSession->sha256_ctx);
+        psa_hash_abort(&pxSession->sha_ctx);
         pxSession->operation_in_progress = pkcs11NO_OPERATION;
         return CKR_FUNCTION_FAILED;
     }
-    mbedtls_sha256_free(&pxSession->sha256_ctx);
+    psa_hash_abort(&pxSession->sha_ctx);
 #endif
     pxSession->operation_in_progress = pkcs11NO_OPERATION;
     *pulDigestLen = pkcs11SHA256_DIGEST_LENGTH;
@@ -5808,8 +5812,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Digest)
  CK_BYTE_PTR pDigest,
  CK_ULONG_PTR pulDigestLen) {
     PKCS11_MODULE_INITIALIZED_AND_SESSION_VALID(xSession);
-    int lib_return = OPTIGA_UTIL_ERROR;
-
+    psa_status_t return_value;
+    size_t hash_length;
     if (pxSession->operation_in_progress != CKM_SHA256) {
         pxSession->operation_in_progress = pkcs11NO_OPERATION;
         PKCS11_PRINT("ERROR: C_Digest: Digest operation not initialized\r\n");
@@ -5883,25 +5887,28 @@ CK_DEFINE_FUNCTION(CK_RV, C_Digest)
     }
 
 #else
-    if ((lib_return = mbedtls_sha256_update_ret(&pxSession->sha256_ctx, pData, ulDataLen)) != 0) {
+    return_value = psa_hash_update(&pxSession->sha_ctx, pData, ulDataLen);
+    if (return_value != PSA_SUCCESS) {
         PKCS11_PRINT(
-            "ERROR: C_Digest: Failed in mbedtls_sha256_update_ret. Error: 0x%X\r\n",
-            lib_return
+            "ERROR: C_Digest: Failed in psa_hash_update. Error: 0x%X\r\n",
+            return_value
         );
-        mbedtls_sha256_free(&pxSession->sha256_ctx);
+        psa_hash_abort(&pxSession->sha_ctx);
         pxSession->operation_in_progress = pkcs11NO_OPERATION;
         return CKR_FUNCTION_FAILED;
     }
-    if ((lib_return = mbedtls_sha256_finish_ret(&pxSession->sha256_ctx, pDigest)) != 0) {
+
+    return_value = psa_hash_finish(&pxSession->sha_ctx, pDigest, *pulDigestLen, &hash_length);
+    if (return_value != PSA_SUCCESS) {
         PKCS11_PRINT(
-            "ERROR: C_Digest: Failed in mbedtls_sha256_finish_ret. Error: 0x%X\r\n",
-            lib_return
+            "ERROR: C_Digest: Failed in psa_hash_finish. Error: 0x%X\r\n",
+            return_value
         );
-        mbedtls_sha256_free(&pxSession->sha256_ctx);
+        psa_hash_abort(&pxSession->sha_ctx);
         pxSession->operation_in_progress = pkcs11NO_OPERATION;
         return CKR_FUNCTION_FAILED;
     }
-    mbedtls_sha256_free(&pxSession->sha256_ctx);
+    
 #endif
     pxSession->operation_in_progress = pkcs11NO_OPERATION;
     *pulDigestLen = pkcs11SHA256_DIGEST_LENGTH;
