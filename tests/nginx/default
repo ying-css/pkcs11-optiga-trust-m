@@ -27,7 +27,8 @@ server {
 	listen 443 ssl default_server;
 	listen [::]:443 ssl default_server;
 	ssl_certificate server_cert_TrustM.pem; 
-	ssl_certificate_key server1_privkey.pem;
+	ssl_certificate_key "engine:pkcs11:pkcs11:token=Token1;type=private"; 
+    # PKCS11 URI for the provider
 		
 	#
 	# Note: You should disable gzip for SSL traffic.
