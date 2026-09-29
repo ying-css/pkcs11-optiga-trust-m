@@ -163,10 +163,31 @@ dos2unix clean.sh
 
 ### OPENSSL Provider Examples
 
-Note: the PKCS11 provider package only available in the main repositories starting with Debian Trixie. On Bookworm(stable) you must either:
- Enable the [Bookworm-backports](https://wiki.debian.org/Backports) and download the backported package,or 
+Note: the PKCS11 provider package only available in Debian Trixie onwards. On Bookworm(stable) you must either:
+ Enable the [Bookworm-backports](https://wiki.debian.org/Backports) and download the backported package, or 
  build it from [source](https://github.com/openssl-projects/pkcs11-provider) 
  and update module in openssl_pkcs11.cnf accordingly
+
+Following the below guide for enable the backports for Bookworm OS and to download the pkcs11-provider(adapt from the above link to enable backport):
+
+Open the sources.list file using this command (Nano recommended):
+
+```console
+sudo apt edit-sources
+```
+Append the following line to the bottom of the file:
+
+```
+deb http://deb.debian.org/debian bookworm-backports main
+```
+
+Then download the pkcs11-provider
+```console
+sudo apt update
+sudo apt install pkcs11-provider/bookworm-backports
+```
+After getting the package, it is recommended to remove the `deb http://deb.debian.org/debian bookworm-backports main` from `sources.list` file to avoid bloating the environment.
+
 
 1. Go to  [OpenSSL Provider folder](./tests/openssl/openssl_engine)  to run examples in script openssl_pkcs11_prov_ecc.sh for ECC algorithm and openssl_pkcs11_prov_rsa.sh for RSA algorithm.
 
