@@ -16,7 +16,7 @@ The private key operations (such as signing during the TLS handshake) are perfor
 Before running this example, make sure that:
 - The Optiga Trust M module is properly connected and provisioned with a valid certificate and corresponding private key.
 - OpenSSL and the PKCS#11 engine (e.g. `libp11`) are installed and correctly configured on your system.
-- Nginx is installed and accessible from your system's `PATH`.
+- Nginx is installed and accessible from your system's `PATH`.(download Nginx independently through `sudo apt install -y nginx`)
 - You have the necessary permissions to start and stop services, and to bind to port `443` (may require `sudo` depending on your system configuration).
 
 ## Setup
@@ -44,6 +44,16 @@ curl -v --resolve InfineonIoTNode:443:127.0.0.1 https://InfineonIoTNode --cacert
 
 If everything is configured correctly, you should see a successful TLS handshake in the verbose output, followed by the HTTP response from the server.
 
+You could also use the below command to see the certificates show in the nginx server and verify that it works
+```console
+openssl s_client -connect 127.0.0.1:443 \
+                -showcerts \
+                -CAfile ../certificates/infineon_CA_root.pem \
+                -servername InfineonIoTNode \
+                -verify_hostname InfineonIoTNode
+```
+
 ## Troubleshooting
 
-- After running the `setup.sh` script, the Trust M is occupied by the nginx server till the server stops. So to release the Trust M for other tasks, please remember to stop the nginx service through the `kill` command.
+- After installing nginx package, disable or stop the nginx so that it will not get intervened with our current script through `sudo systemctl stop nginx` and `sudo systemctl disable nginx`.
+- After running the `setup.sh` script, the Trust M is occupied by the Nginx server till the server stops. So to release the Trust M for other tasks, please remember to stop the Nginx service through the `kill` command.
