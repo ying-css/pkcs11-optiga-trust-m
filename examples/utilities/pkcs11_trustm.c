@@ -1343,7 +1343,7 @@ uint8_t *extract_ECPoint_from_der(uint8_t *der, int *plen) {
         return NULL;
     }
 
-    *plen = bit_string_length - 1;  // Length of the EC point (excluding the 0x04 prefix)
+    *plen = bit_string_length - 1;  // Length of the EC point (including the 0x04 prefix)
 
     return der + i;
 }
@@ -1956,12 +1956,21 @@ upload_certificate(long lOptigaOid, uint8_t *pucData, uint32_t ulDataSize) {
  Public keys on OPTIGA Trust are stored in DER format. Add header including:
     OID 1.2.840.10045.2.1 = EC Public Key 
     EC algorithm OID: prime256v1 (1.2.840.10045.3.1.7)
+ Then wrap the raw data point around the BIT string
  **************************************************************************/
 #define CONCATENATE_DER(header, ec_param) \
     len = sizeof(header); \
     memcpy(pxBuffer, header, len); \
     memcpy(pxBuffer + len, ec_param, sizeof(ec_param)); \
     len += sizeof(ec_param); \
+    if (uTagsLength > 0 && pxTags[0] == 0x04) { \
+        pxBuffer[len++] = 0x03; \
+        if (uTagsLength + 1 >= 0x80) { \
+            pxBuffer[len++] = 0x81; \
+        } \
+        pxBuffer[len++] = (uint8_t)(uTagsLength + 1); \
+        pxBuffer[len++] = 0x00; \
+    } \
     memcpy(pxBuffer + len, pxTags, uTagsLength); \
     len += uTagsLength;
 
@@ -2925,7 +2934,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
                 );
                 if (xResult == CKR_OK) {
                     if (pxLabel
-                        == NULL) /* Client doesn't provide LABEL - use hardcode Optiga public key OID for a specified slot */
+                        == NULL) /* Client doesn't provide LABEL - use hardcode Optiga certificate OID for a specified slot */
                     {
                         xPalHandle = supported_slots_mechanisms_list[pxSession->slot_id]
                                          .logical_object_handle[0];  // Certificate object
@@ -2990,13 +2999,18 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
                     return CKR_TEMPLATE_INCONSISTENT;
                 }
                 if (xResult == CKR_OK) {
-                    xPalHandle = find_object_by_label(pxSession->slot_id, pxLabel->pValue, NULL);
+                    if (pxLabel == NULL){ /* Client doesn't provide LABEL - use hardcode Optiga public key OID for a specified slot */
+                        xPalHandle = supported_slots_mechanisms_list[pxSession->slot_id]
+                                         .logical_object_handle[2];  // Public key object
+                    } else {
+                        xPalHandle = find_object_by_label(pxSession->slot_id, pxLabel->pValue, NULL);
+                    }
                     if (xPalHandle == CK_INVALID_HANDLE)
                         return CKR_OBJECT_HANDLE_INVALID;
 
                     if (upload_public_key(
-                            pxSession->key_alg_id,
                             optiga_objects_list[xPalHandle].physical_oid,
+                            pxSession->key_alg_id,
                             pxPublicKey,
                             ulKeySize
                         )
@@ -3759,6 +3773,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                 if (xClass == CKO_PRIVATE_KEY) {
                     // For EC private key pass in the modulus of the respective public key
                     if (optiga_objects_list[xPalHandle].key_type == CKK_EC) {
+                        if (optiga_objects_list[xPalHandle].slot_id == 0x00) {
+                            // Set the handle to 3 (Slot 0 Pub key)
+                            xPalHandle_ECPoint = 0x03;
+                        }
                         if (optiga_objects_list[xPalHandle].slot_id == 0x01) {
                             // Set the handle to 6 (Slot 1 Pub key)
                             xPalHandle_ECPoint = 0x06;

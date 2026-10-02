@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# SPDX-FileCopyrightText: 2026 Infineon Technologies AG
+#
+# SPDX-License-Identifier: MIT
+
+rm -f *.csr
+rm -f *.der
+rm -f *.pem
+
+rm -f *.bin
+rm -f *.sha
+rm -f *.log
+rm -f *.sig
+rm -f *.in
+rm -f *.txt
+
+rm -f *.log
