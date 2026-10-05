@@ -11,7 +11,7 @@ CERT_FOLDER=../certificates
 set -e
 
 echo "=================================================="
-echo "SSL/TLS Nginx Server with Trust M with PKCS11 Engine"
+echo "SSL/TLS Nginx Server with Trust M with PKCS11 Provider"
 echo "=================================================="
 
 # Use with Caution
