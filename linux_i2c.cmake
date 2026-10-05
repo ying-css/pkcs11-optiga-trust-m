@@ -17,7 +17,7 @@ if(UNIX)
 		${TRUSTM_PATH}/extras/pal/linux/pal_os_timer.c
         ${TRUSTM_PATH}/extras/pal/linux/pal_os_memory.c
         ${TRUSTM_PATH}/extras/pal/linux/pal_shared_mutex.c  
-        ${TRUSTM_PATH}/extras/pal/pal_crypt_openssl.c
+        ${TRUSTM_PATH}/extras/pal/pal_crypt_psa.c
 	)
 	set(TRUSTM_I2C_INC ${TRUSTM_PATH}/extras/pal/linux/include)
 	add_library(${TARGET_I2C_SHLIB} SHARED ${TRUSTM_CORE_SRCS} ${TRUSTM_I2C_SRCS})
@@ -28,8 +28,16 @@ if(UNIX)
 	else()
 		target_compile_definitions(${TARGET_I2C_SHLIB} PRIVATE  -DPAL_OS_HAS_EVENT_INIT -DOPTIGA_LIB_EXTERNAL="${CMAKE_CURRENT_SOURCE_DIR}/config/optiga_trust_m_config.h" -DHAS_LIBGPIOD)
 	endif()
-	
-	target_link_libraries(${TARGET_I2C_SHLIB} rt crypto pthread gpiod)
+	execute_process(
+		COMMAND bash -c "pkg-config --modversion libgpiod 2>/dev/null | cut -c1"
+		OUTPUT_VARIABLE GPIOD_VERSION
+		OUTPUT_STRIP_TRAILING_WHITESPACE
+	)
+	message("The GPIOD library version is ${GPIOD_VERSION}")
+	if(GPIOD_VERSION STREQUAL "1")
+		target_compile_definitions(${TARGET_I2C_SHLIB} PRIVATE -DLIBGPIOD_V1)
+	endif()
+	target_link_libraries(${TARGET_I2C_SHLIB} rt crypto pthread gpiod tfpsacrypto)
 	set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined")
 	set_target_properties( ${TARGET_I2C_SHLIB}
 		PROPERTIES
