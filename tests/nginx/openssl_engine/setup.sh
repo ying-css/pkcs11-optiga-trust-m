@@ -17,7 +17,7 @@ echo "=================================================="
 
 # Use with Caution
 # check if the oldest nginx process is really the nginx we want to kill for start our own
-STOP_EXISTING=1
+STOP_EXISTING=0
 if [ $STOP_EXISTING -eq 1 ]
 then
     NGINX_PID=$(pgrep -o nginx || true)

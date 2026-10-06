@@ -8,10 +8,11 @@ chmod +x pd
 dos2unix pd
 
 CERT_FOLDER=../certificates
+IFX_CERT_PATH=${CERT_FOLDER}/infineon_CA_root.pem
 set -e
 
 echo "=================================================="
-echo "SSL/TLS Nginx Server with Trust M with PKCS11 Provider"
+echo "SSL/TLS Nginx Server with Trust M with PKCS11 provider"
 echo "=================================================="
 
 # Use with Caution
@@ -34,9 +35,9 @@ echo "=================================================="
 ./pd --slot 0 --label Cert --read-object --type cert --output-file temp_server_cert.der
 
 # convert to pem and combine to form leaf(device) -> intermediate
-openssl x509 -in temp_server_cert.der -outform PEM -out server_cert_TrustM.pem
-mv server_cert_TrustM.pem ${CERT_FOLDER}/
-cat ${CERT_FOLDER}/server_cert_TrustM.pem ${CERT_FOLDER}/infineon_CA_300.pem > ${CERT_FOLDER}/TrustM_chaincert.pem
+openssl x509 -in temp_server_cert.der -outform PEM -out TrustM_cert.pem
+mv TrustM_cert.pem ${CERT_FOLDER}/
+cat ${CERT_FOLDER}/TrustM_cert.pem ${CERT_FOLDER}/infineon_CA_300.pem > ${CERT_FOLDER}/Nginx_server_cert.pem
 
 echo "Write the public key to Trust M"
 echo "=================================================="
@@ -45,9 +46,13 @@ openssl x509 -in temp_server_cert.der -pubkey -nocert -out temp_server_pub.pem
 
 
 # Copy the config file into nginx folder
+sed -i '31s/Token1/Token0/' default
 sudo cp default /etc/nginx/sites-enabled/default
-sudo cp ${CERT_FOLDER}/TrustM_chaincert.pem /etc/nginx/TrustM_chaincert.pem
+sudo cp ${CERT_FOLDER}/Nginx_server_cert.pem /etc/nginx/Nginx_server_cert.pem
 sudo cp nginx.conf /etc/nginx/nginx.conf
+
+# Set up root certificate to verify this TLS connect
+sudo cp ${IFX_CERT_PATH} ${CERT_FOLDER}/Ngix_CA_cert.pem
 
 # Start nginx
 echo "=================================================="
