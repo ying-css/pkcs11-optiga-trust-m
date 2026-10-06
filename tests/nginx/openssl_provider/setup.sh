@@ -12,7 +12,7 @@ IFX_CERT_PATH=${CERT_FOLDER}/infineon_CA_root.pem
 set -e
 
 echo "=================================================="
-echo "SSL/TLS Nginx Server with Trust M with PKCS11 Engine"
+echo "SSL/TLS Nginx Server with Trust M with PKCS11 provider"
 echo "=================================================="
 
 # Use with Caution
