@@ -46,7 +46,7 @@ These script will:
 Once the server is running, you can verify that it is correctly serving the Trust M-backed TLS certificate by performing an HTTPS request using `curl`:
 
 ```console
-curl -v --resolve InfineonIoTNode:443:127.0.0.1 https://InfineonIoTNode --cacert ../certificates/Ngix_CA_cert.pem
+curl -v --resolve InfineonIoTNode:443:127.0.0.1 https://InfineonIoTNode --cacert ../certificates/Nginx_CA_cert.pem
 ```
 
 If everything is configured correctly, you should see a successful TLS handshake in the verbose output, followed by the HTTP response from the server.
@@ -56,7 +56,7 @@ You could also use the below command to see the certificates show in the nginx s
 openssl s_client \
 -connect 127.0.0.1:443 \
 -showcerts \
--CAfile ../certificates/Ngix_CA_cert.pem 
+-CAfile ../certificates/Nginx_CA_cert.pem 
 ```
 
 ## Troubleshooting

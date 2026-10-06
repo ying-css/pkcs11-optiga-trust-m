@@ -52,7 +52,7 @@ sudo cp ${CERT_FOLDER}/Nginx_server_cert.pem /etc/nginx/Nginx_server_cert.pem
 sudo cp nginx.conf /etc/nginx/nginx.conf
 
 # Set up root certificate to verify this TLS connect
-sudo cp ${IFX_CERT_PATH} ${CERT_FOLDER}/Ngix_CA_cert.pem
+sudo cp ${IFX_CERT_PATH} ${CERT_FOLDER}/Nginx_CA_cert.pem
 
 # Start nginx
 echo "=================================================="
