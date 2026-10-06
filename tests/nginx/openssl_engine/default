@@ -27,7 +27,7 @@ server {
 	listen 443 ssl default_server;
 	listen [::]:443 ssl default_server;
 
-	ssl_certificate TrustM_chaincert.pem;
+	ssl_certificate Nginx_server_cert.pem;
 	ssl_certificate_key "engine:pkcs11:pkcs11:token=Token0;type=private";
 		
 	#

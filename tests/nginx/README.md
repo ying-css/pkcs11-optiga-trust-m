@@ -9,7 +9,7 @@ SPDX-License-Identifier: MIT
 
 This example demonstrates how to configure an **Nginx** web server to use the **Infineon Optiga Trust M** secure element as the source of its server certificate and private key, instead of storing them as plain files on disk.
 
-The private key operations (such as signing during the TLS handshake) are performed securely inside the Optiga Trust M chip. This is achieved by integrating Nginx with OpenSSL's **PKCS#11 engine**, which acts as a bridge between OpenSSL and the hardware secure element.
+The private key operations (such as signing during the TLS handshake) are performed securely inside the Optiga Trust M chip. This is achieved by integrating Nginx with OpenSSL's **PKCS#11 engine** or **PKCS#11 provider**, which acts as a bridge between OpenSSL and the hardware secure element.
 
 ## Prerequisites
 
@@ -21,7 +21,7 @@ Before running this example, make sure that:
 
 ## Setup
 
-To configure and start the Nginx server using the Trust M certificate and private key through PKCS#11, run the following script:
+To configure and start the Nginx server using the Trust M certificate and private key through PKCS#11, run the following script by going to either [enginer folder](openssl_engine) or [provider folder](openssl_provider):
 
 ```console
 ./setup.sh
@@ -46,14 +46,15 @@ If everything is configured correctly, you should see a successful TLS handshake
 
 You could also use the below command to see the certificates show in the nginx server and verify that it works
 ```console
-openssl s_client -connect 127.0.0.1:443 \
-                -showcerts \
-                -CAfile ../certificates/infineon_CA_root.pem \
-                -servername InfineonIoTNode \
-                -verify_hostname InfineonIoTNode
+openssl s_client \
+-connect 127.0.0.1:443 \
+-showcerts \
+-CAfile ../certificates/infineon_CA_root.pem \
+-servername InfineonIoTNode \
+-verify_hostname InfineonIoTNode
 ```
 
 ## Troubleshooting
 
 - After installing nginx package, disable or stop the nginx so that it will not get intervened with our current script through `sudo systemctl stop nginx` and `sudo systemctl disable nginx`.
-- After running the `setup.sh` script, the Trust M is occupied by the Nginx server till the server stops. So to release the Trust M for other tasks, please remember to stop the Nginx service through the `kill` command.
+- After running the `setup.sh` script, the Trust M is occupied by the Nginx server till the server stops. So to release the Trust M for other tasks, please remember to stop the Nginx service through the `pgrep nginx` for the id then `sudo kill {id}` command.
