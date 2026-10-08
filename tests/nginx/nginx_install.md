@@ -8,6 +8,7 @@ SPDX-License-Identifier: MIT
 As of writing this guide, the default Nginx package available on Raspberry Pi OS (Trixie) is version 1.27, which does not support the OpenSSL Provider used in this repository. To work around this, you need to self-install Nginx 1.29 or higher.
 
 This guide follows the steps for Debian packages outlined in the [official Nginx documentation](https://docs.nginx.com/nginx/admin-guide/installing-nginx/installing-nginx-open-source/#debian-packages).
+> **Note:** If you already have some running nginx it could cause some issue to this installation, so make sure run the troubleshooting command and step0 script to clear existing nginx running.
 
 ## Steps
 
