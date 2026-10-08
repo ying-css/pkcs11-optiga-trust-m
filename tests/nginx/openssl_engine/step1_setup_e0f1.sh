@@ -14,27 +14,9 @@ IFX_CERT_KEY=${CERT_FOLDER}/OPTIGA_Trust_M_Infineon_Test_CA_Key.pem
 set -e
 
 echo "=================================================="
-echo "SSL/TLS Nginx Server with Trust M with PKCS11 Engine"
-echo "=================================================="
-
-# Use with Caution
-# check if the oldest nginx process is really the nginx we want to kill for start our own
-STOP_EXISTING=0
-if [ $STOP_EXISTING -eq 1 ]
-then
-    NGINX_PID=$(pgrep -o nginx || true)
-    if [ -n "$NGINX_PID" ]
-    then
-        echo "Stop current running nginx"
-        echo
-        echo "=================================================="
-        sudo kill -9 $NGINX_PID
-    fi
-fi
-
 if [ -e $IFX_CERT_KEY ]
 then
-	echo "TEST CA key ok"
+	echo "TEST CA certificate and key already exists"
 else
 	if [ ! -d certificates ]
 	then
@@ -63,17 +45,8 @@ openssl x509 -outform der -in Slot1Cert.pem -out Slot1Cert.der
 cp Slot1Cert.pem ${CERT_FOLDER}/
 cat ${CERT_FOLDER}/Slot1Cert.pem > ${CERT_FOLDER}/Nginx_server_cert.pem
 
-# Copy the config file into nginx folder
-sed -i '31s/Token0/Token1/' default
-sudo cp default /etc/nginx/sites-enabled/default
-sudo cp ${CERT_FOLDER}/Nginx_server_cert.pem /etc/nginx/Nginx_server_cert.pem
-sudo cp nginx.conf /etc/nginx/nginx.conf
-
-# Set up root certificate to verify this TLS connect
+# Set up root certificate to verify the TLS connection
 sudo cp ${IFX_CERT_PATH} ${CERT_FOLDER}/Nginx_CA_cert.pem
 
-
-# Start nginx
+echo "Setup the certificate and private key in e0e1 and e0f1 successful"
 echo "=================================================="
-echo "Start nginx server"
-sudo env OPENSSL_CONF="$PWD/openssl_pkcs11.cnf" nginx -g "daemon off; master_process off;" &
