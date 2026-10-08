@@ -9,8 +9,8 @@
 NGINX_PID=$(pgrep -o nginx || true)
 if [ -n "$NGINX_PID" ]
 then
-    echo "Stop current running nginx"
-    echo
     echo "=================================================="
-    sudo kill -9 $NGINX_PID
+    echo "Stop current running nginx"
+    echo "=================================================="
+    sudo kill -QUIT $NGINX_PID
 fi
