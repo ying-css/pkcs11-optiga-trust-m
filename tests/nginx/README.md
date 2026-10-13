@@ -57,3 +57,5 @@ openssl s_client \
 
 ## Troubleshooting
 - After running the setup script, the Trust M remains occupied by the Nginx server until the server is stopped. To release the Trust M for other tasks, make sure to stop the Nginx service. You can do this by running `pgrep nginx` to find the process ID, then `sudo kill {id}`, or by simply using the `step0_stop_nginx.sh` script.
+- The setup right now change the config file of Nginx in `/etc/nginx` folder, which causes issues for rebooting, changing the permission of the shared mutex in `/dev/shm` into `root`. To prevent this issues, run the `revert.sh` after shutdowning the Nginx server or remove the file using `sudo rm -f /dev/shm/trustm-mutex`
+- By default, the Nginx is activated automatically by `systemd` of the Raspberry Pi when rebooting, which causes the root-owned shared mutex file like above. So it is suggested to disable Nginx from `systemd` using this command `sudo systemctl disable nginx`
