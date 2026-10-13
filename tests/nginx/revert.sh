@@ -6,6 +6,9 @@
 
 
 # Copy the original config into nginx folder
+echo "=================================================="
+echo "Reverting the Nginx config"
+echo "=================================================="
 sudo mkdir -p /etc/nginx/sites-enabled
 sudo cp default_org /etc/nginx/sites-enabled/default
 sudo cp nginx_org.conf /etc/nginx/nginx.conf
