@@ -4358,8 +4358,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                 );
                 break;
             case CKA_PUBLIC_EXPONENT:
-                if (pxSession->key_alg_id == OPTIGA_RSA_KEY_2048_BIT_EXPONENTIAL
-                    || pxSession->key_alg_id == OPTIGA_RSA_KEY_1024_BIT_EXPONENTIAL) {
+                if ((xClass == CKO_PRIVATE_KEY || xClass == CKO_PUBLIC_KEY)
+                    && (optiga_objects_list[xPalHandle].slot_id == 0x04
+                        || optiga_objects_list[xPalHandle].slot_id == 0x05)) {
                     xResult = check_and_copy_attribute(
                         xObject,
                         "CKA_PUBLIC_EXPONENT",
