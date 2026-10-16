@@ -553,16 +553,14 @@ pal_os_lock_t optiga_mutex;
 **************/
 #define PKCS11_MODULE_INITIALIZED_AND_SESSION_VALID(xSession) \
     PKCS11_MODULE_INITIALIZED \
-    if ((p_pkcs11_session_t)xSession == NULL) \
-        return CKR_SESSION_HANDLE_INVALID; \
-    if (((p_pkcs11_session_t)xSession)->opened != CK_TRUE) { \
-        PKCS11_PRINT("ERROR: %s: Invalid session or session not opened\r\n", __func__); \
-        return CKR_SESSION_CLOSED; \
-    } \
     p_pkcs11_session_t pxSession = get_session_pointer(xSession); \
     if (pxSession == NULL) { \
         PKCS11_PRINT("ERROR: %s: Invalid session handle\r\n", __func__); \
         return CKR_SESSION_HANDLE_INVALID; \
+    } \
+    if (pxSession->opened != CK_TRUE) { \
+        PKCS11_PRINT("ERROR: %s: Invalid session or session not opened\r\n", __func__); \
+        return CKR_SESSION_CLOSED; \
     } \
     PKCS11_DEBUG("TRACE: Enter %s. Session: 0x%X\r\n", __func__, pxSession);
 
@@ -848,7 +846,7 @@ CK_RV optiga_trustm_sign_data(
     uint8_t *pucData,
     int ulDataLen,
     CK_BYTE_PTR pucSignature,
-    CK_ULONG xSignatureLength
+    CK_ULONG_PTR pxSignatureLength
 ) {
     optiga_lib_status_t optiga_lib_return = OPTIGA_UTIL_ERROR;
     /* Signature Length + 3x2 bytes reserved for DER tags */
@@ -856,6 +854,12 @@ CK_RV optiga_trustm_sign_data(
     uint16_t ecSignatureLength = sizeof(ecSignature);
     optiga_rsa_signature_scheme_t rsa_signature_scheme = 0;
     uint8_t data_pos = 0;
+    CK_ULONG xSignatureLength;
+
+    if (pucData == NULL || pucSignature == NULL || pxSignatureLength == NULL) {
+        return CKR_ARGUMENTS_BAD;
+    }
+    xSignatureLength = *pxSignatureLength;
     HEXDUMP("TRACE: C_Sign...: Signing data: ", pucData, ulDataLen);
 
     trustm_TimerStart();
@@ -909,11 +913,11 @@ CK_RV optiga_trustm_sign_data(
                 break;
             }
             case OPTIGA_RSASSA_PKCS1_V15_SHA384: {
-                if (ulDataLen == 64) {
+                if (ulDataLen == 48) {
                     data_pos = 0;
                 } else {
                     data_pos = SHA384_RSA_PKCS_PSS_HEADER_LENGTH;
-                    ulDataLen = 64;
+                    ulDataLen = 48;
                 }
                 break;
             }
@@ -947,8 +951,6 @@ CK_RV optiga_trustm_sign_data(
             BUSY_WAIT_TIME_OUT,
             "optiga_crypt_rsa_sign"
         );
-        memcpy(pucSignature, rsaSignature, rsaSignatureLength);
-        xSignatureLength = rsaSignatureLength;
         if (OPTIGA_LIB_SUCCESS != optiga_lib_return) {
             PKCS11_PRINT(
                 "ERROR: C_Sign...(RSA): 'optiga_crypt_sign' failed. Returned: 0x%04X\r\n",
@@ -956,6 +958,11 @@ CK_RV optiga_trustm_sign_data(
             );
             return optiga_lib_return;
         }
+        if (rsaSignatureLength > xSignatureLength) {
+            return CKR_BUFFER_TOO_SMALL;
+        }
+        memcpy(pucSignature, rsaSignature, rsaSignatureLength);
+        *pxSignatureLength = rsaSignatureLength;
     } else {
         PKCS11_PRINT("ERROR: C_Sign...: Wrong mechanism: 0x%X\r\n", sign_mechanism);
         return OPTIGA_UTIL_ERROR;
@@ -967,7 +974,7 @@ CK_RV optiga_trustm_sign_data(
         * 0x000030: 0d 7d 46 5b 44 72 40 06 a5 7b 06 84 0f d7 6e 0f .}F[Dr@..{....n.
         * 0x000040: 4b 45 7f 50                                     KE.P
         */
-    HEXDUMP("TRACE: C_Sign...: Signature: ", pucSignature, xSignatureLength);
+    HEXDUMP("TRACE: C_Sign...: Signature: ", pucSignature, *pxSignatureLength);
     return optiga_lib_return;
 }
 
@@ -1372,8 +1379,15 @@ p_pkcs11_session_t new_session_pointer() {
  * @brief Maps an opaque caller session handle into its internal state structure.
  *************************************************************************/
 p_pkcs11_session_t get_session_pointer(CK_SESSION_HANDLE xSession) {
-    return (p_pkcs11_session_t
-    )xSession; /*lint !e923 Allow casting integer type to pointer for handle. */
+    int i;
+    p_pkcs11_session_t session = (p_pkcs11_session_t)xSession;
+
+    for (i = 0; i < MAX_SESSIONS; i++) {
+        if (pxSessions[i] == session) {
+            return session;
+        }
+    }
+    return NULL;
 }
 /*************************************************************************
  * @brief Finds and deallocates session(s) structure
@@ -2999,11 +3013,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
                     return CKR_TEMPLATE_INCONSISTENT;
                 }
                 if (xResult == CKR_OK) {
-                    if (pxLabel == NULL){ /* Client doesn't provide LABEL - use hardcode Optiga public key OID for a specified slot */
+                    if (pxLabel
+                        == NULL) { /* Client doesn't provide LABEL - use hardcode Optiga public key OID for a specified slot */
                         xPalHandle = supported_slots_mechanisms_list[pxSession->slot_id]
                                          .logical_object_handle[2];  // Public key object
                     } else {
-                        xPalHandle = find_object_by_label(pxSession->slot_id, pxLabel->pValue, NULL);
+                        xPalHandle =
+                            find_object_by_label(pxSession->slot_id, pxLabel->pValue, NULL);
                     }
                     if (xPalHandle == CK_INVALID_HANDLE)
                         return CKR_OBJECT_HANDLE_INVALID;
@@ -3182,13 +3198,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetSlotList)
     } else if (NULL == pxSlotList) {
         *pulCount = PKCS11_MAX_SLOTS;
     } else {
-        if (0u == *pulCount) {
-            PKCS11_PRINT("ERROR: C_GetSlotList: Reserved output buffer has zero size\r\n");
+        if (*pulCount < PKCS11_MAX_SLOTS) {
+            *pulCount = PKCS11_MAX_SLOTS;
+            PKCS11_PRINT("ERROR: C_GetSlotList: Reserved output buffer is too small\r\n");
             return CKR_BUFFER_TOO_SMALL;
         } else {
-            if (*pulCount > PKCS11_MAX_SLOTS) {
-                *pulCount = PKCS11_MAX_SLOTS;
-            }
+            *pulCount = PKCS11_MAX_SLOTS;
             for (; ulSlot < *pulCount; ulSlot++) {
                 pxSlotList[ulSlot] = supported_slots_mechanisms_list[ulSlot].slot_id;
             }
@@ -3205,6 +3220,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetSlotList)
 CK_DEFINE_FUNCTION(CK_RV, C_GetSlotInfo)(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo) {
     PKCS11_MODULE_INITIALIZED
 
+    if (slotID >= PKCS11_MAX_SLOTS) {
+        return CKR_SLOT_ID_INVALID;
+    }
     if (pInfo == NULL)
         return CKR_ARGUMENTS_BAD;
 
@@ -3332,13 +3350,12 @@ CK_RV C_GetMechanismList(
     if (NULL == pMechanismList) {
         *pulCount = supported_slots_mechanisms_list[slotID].mechanisms_number;
     } else {
-        if (0u == *pulCount) {
-            PKCS11_PRINT("ERROR: C_GetMechanismList: Reserved output buffer has zero size\r\n");
+        if (*pulCount < supported_slots_mechanisms_list[slotID].mechanisms_number) {
+            *pulCount = supported_slots_mechanisms_list[slotID].mechanisms_number;
+            PKCS11_PRINT("ERROR: C_GetMechanismList: Reserved output buffer is too small\r\n");
             return CKR_BUFFER_TOO_SMALL;
         } else {
-            if (*pulCount > supported_slots_mechanisms_list[slotID].mechanisms_number) {
-                *pulCount = supported_slots_mechanisms_list[slotID].mechanisms_number;
-            }
+            *pulCount = supported_slots_mechanisms_list[slotID].mechanisms_number;
             for (; ulMech < *pulCount; ulMech++) {
                 pMechanismList[ulMech] =
                     supported_slots_mechanisms_list[slotID].mechanisms_list[ulMech].xType;
@@ -3366,6 +3383,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetMechanismInfo)
 
     if (slotID >= PKCS11_MAX_SLOTS) {
         return CKR_SLOT_ID_INVALID;
+    }
+    if (pInfo == NULL) {
+        return CKR_ARGUMENTS_BAD;
     }
     /* Look for the requested mechanism in the above table. */
     for (; ulMech < supported_slots_mechanisms_list[slotID].mechanisms_number; ulMech++) {
@@ -3417,6 +3437,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_OpenSession)
 
     (void)(pvApplication);
     (void)(xNotify);
+    if (xSlotID >= PKCS11_MAX_SLOTS) {
+        return CKR_SLOT_ID_INVALID;
+    }
     /* Check that the PKCS #11 module is initialized. */
     if (pkcs11_context.is_initialized != CK_TRUE) {
         xResult = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3461,9 +3484,14 @@ CK_DEFINE_FUNCTION(CK_RV, C_OpenSession)
         pxSessionObj->operation_in_progress = pkcs11NO_OPERATION;
     }
     if ((NULL != pxSessionObj) && (CKR_OK != xResult)) {
-        free(pxSessionObj);
+        free_session_pointer((CK_SESSION_HANDLE)pxSessionObj);
     }
-    PKCS11_DEBUG("TRACE[%d]: Enter %s. Session: 0x%X\r\n", getpid(), __func__, *pxSession);
+    PKCS11_DEBUG(
+        "TRACE[%d]: Enter %s. Session: 0x%X\r\n",
+        getpid(),
+        __func__,
+        (pxSession != NULL) ? *pxSession : 0
+    );
     return xResult;
 }
 CK_DEFINE_FUNCTION(CK_RV, C_GetSessionInfo)
@@ -3543,8 +3571,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetOperationState)
  * @brief Terminate all sessions of a slot and release resources.
  **************************************************************************/
 CK_DEFINE_FUNCTION(CK_RV, C_CloseAllSessions)(CK_SLOT_ID slotID) {
-    PKCS11_MODULE_INITIALIZED(void) slotID;
-    free_session_pointer((CK_SESSION_HANDLE)NULL);
+    PKCS11_MODULE_INITIALIZED
+    int i;
+
+    if (slotID >= PKCS11_MAX_SLOTS) {
+        return CKR_SLOT_ID_INVALID;
+    }
+    for (i = 0; i < MAX_SESSIONS; i++) {
+        if (pxSessions[i] != NULL && pxSessions[i]->slot_id == slotID) {
+            free_session_pointer((CK_SESSION_HANDLE)pxSessions[i]);
+        }
+    }
     return xResult;
 }
 /**************************************************************************
@@ -3573,6 +3610,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetObjectSize)
 (CK_SESSION_HANDLE xSession, CK_OBJECT_HANDLE xObject, CK_ULONG_PTR pulSize) {
     PKCS11_MODULE_INITIALIZED_AND_SESSION_VALID(xSession);
     CK_OBJECT_HANDLE xPalHandle = CK_INVALID_HANDLE;
+
+    if (pulSize == NULL) {
+        return CKR_ARGUMENTS_BAD;
+    }
 
     /* Find object by logical handle */
     xPalHandle = find_object_by_handle(xObject, NULL);
@@ -4317,8 +4358,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                 );
                 break;
             case CKA_PUBLIC_EXPONENT:
-                if (pxSession->key_alg_id == OPTIGA_RSA_KEY_2048_BIT_EXPONENTIAL
-                    || OPTIGA_RSA_KEY_1024_BIT_EXPONENTIAL) {
+                if ((xClass == CKO_PRIVATE_KEY || xClass == CKO_PUBLIC_KEY)
+                    && (optiga_objects_list[xPalHandle].slot_id == 0x04
+                        || optiga_objects_list[xPalHandle].slot_id == 0x05)) {
                     xResult = check_and_copy_attribute(
                         xObject,
                         "CKA_PUBLIC_EXPONENT",
@@ -4394,9 +4436,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
         PKCS11_DEBUG("TRACE: C_FindObjectsInit: No template provided. Search all objects\r\n");
         pxSession->find_object_init = CK_TRUE;
         return CKR_OK;
-    } else if (pxTemplate->ulValueLen > MAX_LABEL_LENGTH) {
-        PKCS11_PRINT("ERROR: C_FindObjectsInit: Invalid object label in template.\r\n");
-        return CKR_ARGUMENTS_BAD;
     }
     PKCS11_PRINT_TEMPLATE(pxTemplate, ulCount)
 
@@ -4425,6 +4464,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
                 break;
 
             case CKA_LABEL:  // Search by LABEL
+                if (xAttribute.pValue == NULL || xAttribute.ulValueLen > MAX_LABEL_LENGTH) {
+                    PKCS11_PRINT("ERROR: C_FindObjectsInit: Invalid object label in template.\r\n");
+                    return CKR_ARGUMENTS_BAD;
+                }
                 memcpy(pxSession->find_object_label, xAttribute.pValue, xAttribute.ulValueLen);
                 pxSession->find_object_length = xAttribute.ulValueLen;
                 pxSession->find_object_init = CK_TRUE;
@@ -4437,6 +4480,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
                 break;
 
             case CKA_ID:  // Search by ID
+                if (xAttribute.pValue == NULL || xAttribute.ulValueLen == 0) {
+                    return CKR_ARGUMENTS_BAD;
+                }
                 if (xAttribute.ulValueLen > sizeof(byteID))
                     xAttribute.ulValueLen = sizeof(byteID);
                 memcpy(byteID, xAttribute.pValue, xAttribute.ulValueLen);
@@ -4634,10 +4680,14 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
     long lOptigaOid_public = 0;
 
     optiga_rsa_key_type_t rsa_key_type = 0;
-    uint8_t key_usage;
+    uint8_t key_usage = 0;
     long optiga_timeout = BUSY_WAIT_TIME_OUT;
 
     do {
+        if (pxMechanism == NULL || pxPublicKeyTemplate == NULL || pxPrivateKeyTemplate == NULL
+            || pxPublicKey == NULL || pxPrivateKey == NULL) {
+            return CKR_ARGUMENTS_BAD;
+        }
         PKCS11_DEBUG("TRACE: C_GenerateKeyPair: session: 0x%p\r\n", (void *)pxSession);
 
         if (pxSession->slot_id >= PKCS11_MAX_SLOTS) {
@@ -4956,6 +5006,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_Sign)
         PKCS11_PRINT("ERROR: C_Sign: Wrong arguments: pulSignatureLen or ulDataLen is null\r\n");
         return CKR_ARGUMENTS_BAD;
     }
+    if (pucData == NULL) {
+        return CKR_ARGUMENTS_BAD;
+    }
 
     /* Caller trying to determine the length of the buffer needed to hold the signature */
     if (*pulSignatureLen == 0) {
@@ -4972,6 +5025,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_Sign)
         );
         return CKR_BUFFER_TOO_SMALL;
     }
+    if (pucSignature == NULL) {
+        return CKR_ARGUMENTS_BAD;
+    }
     if (0 == pxSession->sign_key_oid) {
         PKCS11_PRINT("ERROR: C_Sign: Wrong OID was provided in C_SignInit\r\n");
         return CKR_ARGUMENTS_BAD;
@@ -4984,12 +5040,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_Sign)
         pucData,
         ulDataLen,
         pucSignature,
-        pxSession->signature_size
+        &pxSession->signature_size
     );
     if (optiga_lib_return != OPTIGA_LIB_SUCCESS)
         return CKR_FUNCTION_FAILED;
     *pulSignatureLen = pxSession->signature_size;
     pxSession->sign_mechanism = pkcs11NO_OPERATION;
+    pxSession->sign_init_done = CK_FALSE;
     return xResult;
 }
 /**************************************************************************
@@ -5040,13 +5097,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_VerifyInit)
         pxSession->key_object_handle = xPalHandle;
 
         /* Check that the mechanism and key type are compatible, supported. */
-        if (pxSession->signature_size = check_signature_scheme_get_signature_size(
-                                            pxSession,
-                                            pxMechanism->mechanism,
-                                            0,
-                                            xPalHandle
-                                        )
-                                        == 0) {
+        pxSession->signature_size = check_signature_scheme_get_signature_size(
+            pxSession,
+            pxMechanism->mechanism,
+            0,
+            xPalHandle
+        );
+        if (pxSession->signature_size == 0) {
             PKCS11_PRINT(
                 "ERROR: C_VerifyInit: Invalid mechanism: 0x%X\r\n",
                 pxMechanism->mechanism
@@ -5739,7 +5796,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DigestUpdate)
 CK_DEFINE_FUNCTION(CK_RV, C_DigestFinal)
 (CK_SESSION_HANDLE xSession, CK_BYTE_PTR pDigest, CK_ULONG_PTR pulDigestLen) {
     PKCS11_MODULE_INITIALIZED_AND_SESSION_VALID(xSession);
-    psa_status_t return_value; 
+    psa_status_t return_value;
     size_t hash_length;
     if (pxSession->operation_in_progress != CKM_SHA256) {
         pxSession->operation_in_progress = pkcs11NO_OPERATION;
@@ -5907,10 +5964,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Digest)
 #else
     return_value = psa_hash_update(&pxSession->sha_ctx, pData, ulDataLen);
     if (return_value != PSA_SUCCESS) {
-        PKCS11_PRINT(
-            "ERROR: C_Digest: Failed in psa_hash_update. Error: 0x%X\r\n",
-            return_value
-        );
+        PKCS11_PRINT("ERROR: C_Digest: Failed in psa_hash_update. Error: 0x%X\r\n", return_value);
         psa_hash_abort(&pxSession->sha_ctx);
         pxSession->operation_in_progress = pkcs11NO_OPERATION;
         return CKR_FUNCTION_FAILED;
@@ -5918,15 +5972,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_Digest)
 
     return_value = psa_hash_finish(&pxSession->sha_ctx, pDigest, *pulDigestLen, &hash_length);
     if (return_value != PSA_SUCCESS) {
-        PKCS11_PRINT(
-            "ERROR: C_Digest: Failed in psa_hash_finish. Error: 0x%X\r\n",
-            return_value
-        );
+        PKCS11_PRINT("ERROR: C_Digest: Failed in psa_hash_finish. Error: 0x%X\r\n", return_value);
         psa_hash_abort(&pxSession->sha_ctx);
         pxSession->operation_in_progress = pkcs11NO_OPERATION;
         return CKR_FUNCTION_FAILED;
     }
-    
+
 #endif
     pxSession->operation_in_progress = pkcs11NO_OPERATION;
     *pulDigestLen = pkcs11SHA256_DIGEST_LENGTH;
